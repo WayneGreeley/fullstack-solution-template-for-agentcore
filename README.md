@@ -1,59 +1,63 @@
-# GenAIID AgentCore Starter Pack
+# GenAIID AgentCore Starter Pack (GASP)
 
-The GenAIID AgentCore Starter Pack (GASP) is a starter project repository that enables developers to use CDK to quickly deploy a secured, web-accessible React frontend connected to an AgentCore backend. Its purpose is to accelerate customer engagements from weeks to days by handling the undifferentiated heavy lifting of infrastructure setup and to enable vibe-coding style development on top.
+The GenAIID AgentCore Starter Pack (GASP) is a starter project repository that enables users (delivery scientists and engineers) to quickly deploy a secured, web-accessible React frontend connected to an AgentCore backend. Its purpose is to accelerate customer engagements from weeks to days by handling the undifferentiated heavy lifting of infrastructure setup and to enable vibe-coding style development on top. 
 
-## Architecture
+GASP is designed with security and vibe-codability as primary tenets. Best practices and knowledge from experts are codified in _documentation_ in this repository rather than in _code_. By including this documentation in an AI coding assistant's context, or by instructing the AI coding assistant to leverage best practices and code snippets found in the documentation, delivery scientists and developers can quickly vibe-build AgentCore applications for any use case. AI coding assistants can be used to fully customize the frontend and the cdk infrastructure, enabling scientists to focus the areas where their knowledge is most impactful: the actual prompt engineering and GenAI implementation details. 
+
+With GASP as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure (cdk) code.
+
+## GASP User Setup
+
+If you are a delivery scientist or engineer who wants to use GASP to build a full stack application, this is the section for you.
+
+TODO: write this section, including stuff like:
+* describe how to set up their coding assistant with the right context and/or recommended MCP servers, make sure it describes the method for all common assistants (Q CLI, Cline, Kiro at a minimum). 
+* start by forking this repo
+* recommend looking at the samples repository and optionally cloning one or two if it has characteristics that align with what they are trying to do
+* deploy GASP out-of-the-box to make sure that works
+* point users towards development best practice READMEs which e.g. explain to deploy the UI locally for quick UI development
+  
+
+## GASP Baseline System
+
+GASP comes deployable out-of-the-box with a fully functioning application. This application represents a basic multi-turn chat conversation use case where the backend agent has access to some basic tools. **Do not let this deter you, even if your use case is entirely different! If your application requires AgentCore, customizing GASP to any use case is extremely straightforward through vibe coding.**
+
+### Architecture
 
 ![Architecture Diagram](docs/img/GASP-architecture-20251023.png)
+The out-of-the-box architecture is shown above. 
 
-## What's Included
+### Tech stack
 
 - **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
-- **Backend**: AWS Bedrock AgentCore runtime with configurable agent patterns
+- **Agent Providers**: Many agent providers are supported (Strands, langgraph, etc) (TODO) as a starting point. They all run within AgentCore Runtime.
 - **Authentication**: AWS Cognito User Pool with OAuth support
-- **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore runtime
+- **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
 - **Styling**: Dark/Light theme support
-- **Agent Patterns**: Pluggable agent implementations (currently includes strands-single-agent)
 
-## Prerequisites
+### Features
 
-- Node.js 18+ 
-- AWS CLI configured
-- AWS CDK CLI installed (`npm install -g aws-cdk`)
+#### Authentication
+- Cognito User Pool with email/username sign-in
+- OAuth support with authorization code flow
+- Secure password policy
+- Email verification
 
-## Quick Start
+#### Frontend
+- Cloudscape Design System components
+- Dark/Light theme toggle
+- Responsive design
+- SPA routing with React Router
 
-### 1. Install Dependencies
+#### Infrastructure
+- S3 static website hosting
+- CloudFront CDN with HTTPS
+- Origin Access Control (OAC) for security
+- Automatic deployment pipeline
 
-Frontend:
-```bash
-cd frontend
-npm install
-```
+## Deployment
 
-Infrastructure:
-```bash
-cd infra-cdk
-npm install
-```
-
-### 2. Deploy Infrastructure
-
-```bash
-cd infra-cdk
-npm run build           # Compile TypeScript
-npx cdk bootstrap       # Only needed once per AWS account/region
-npx cdk deploy --all
-```
-
-### 3. Local Development
-
-```bash
-cd frontend
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
+The GASP system is deployed with `cdk`. Please see the [deployment README](docs/DEPLOYMENT.md) for details on how to deploy GASP into an AWS account.
 
 ## Project Structure
 
@@ -85,83 +89,8 @@ genaiid-agentcore-starter-pack/
 └── README.md
 ```
 
-## Configuration
 
-Edit `infra-cdk/config.yaml` to customize:
 
-- Stack name
-- Custom domain (optional)
-- Certificate ARN (optional)
-- Backend agent pattern selection
-
-## Features
-
-### Authentication
-- Cognito User Pool with email/username sign-in
-- OAuth support with authorization code flow
-- Secure password policy
-- Email verification
-
-### Frontend
-- Cloudscape Design System components
-- Dark/Light theme toggle
-- Responsive design
-- SPA routing with React Router
-
-### Infrastructure
-- S3 static website hosting
-- CloudFront CDN with HTTPS
-- Origin Access Control (OAC) for security
-- Automatic deployment pipeline
-
-## Development
-
-### Adding New Pages
-
-1. Create a new component in `frontend/src/pages/`
-2. Add the route in `frontend/src/app.tsx`
-3. Update navigation if needed
-
-### Customizing Styles
-
-- Global styles: `frontend/src/styles/app.scss`
-- Theme switching: `frontend/src/common/helpers/storage-helper.ts`
-
-### Infrastructure Changes
-
-- Modify stacks in `infra-cdk/lib/`
-- Build TypeScript: `npm run build`
-- Deploy changes with `npx cdk deploy --all`
-
-## Deployment
-
-The CDK deployment will:
-
-1. Create a Cognito User Pool and Client
-2. Set up S3 bucket for static hosting
-3. Configure CloudFront distribution
-4. Build and deploy the React application
-5. Generate `aws-exports.json` with configuration
-
-## Cleanup
-
-To remove all resources:
-
-```bash
-cd infra-cdk
-npx cdk destroy --all
-```
-
-## Next Steps
-
-This starter pack provides a foundation for building full-stack applications. Consider adding:
-
-- API Gateway and Lambda functions for backend logic
-- DynamoDB for data storage
-- Additional Cognito features (MFA, custom attributes)
-- CI/CD pipeline
-- Custom domain and SSL certificate
-- Monitoring and logging
 
 ## License
 
