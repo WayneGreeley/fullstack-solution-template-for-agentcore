@@ -7,6 +7,7 @@ import * as s3Assets from "aws-cdk-lib/aws-s3-assets"
 import * as ssm from "aws-cdk-lib/aws-ssm"
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb"
 import * as apigateway from "aws-cdk-lib/aws-apigateway"
+import * as logs from "aws-cdk-lib/aws-logs"
 // Note: Using CfnResource for BedrockAgentCore as the L2 construct may not be available yet
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha"
 import * as lambda from "aws-cdk-lib/aws-lambda"
@@ -401,6 +402,20 @@ export class BackendStack extends cdk.NestedStack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     })
 
+    // Add GSI for querying by feedbackType with timestamp sorting
+    feedbackTable.addGlobalSecondaryIndex({
+      indexName: "feedbackType-timestamp-index",
+      partitionKey: {
+        name: "feedbackType",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "timestamp",
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    })
+
     // Create Lambda function for feedback using NodejsFunction for automatic TypeScript compilation and bundling
     const feedbackLambda = new NodejsFunction(this, "FeedbackLambda", {
       functionName: `${config.stack_name_base}-feedback`,
@@ -409,8 +424,10 @@ export class BackendStack extends cdk.NestedStack {
       handler: "handler",
       environment: {
         TABLE_NAME: feedbackTable.tableName,
+        ALLOWED_ORIGINS: '*',
       },
       timeout: cdk.Duration.seconds(30),
+      logRetention: logs.RetentionDays.ONE_WEEK,
       bundling: {
         minify: true,
         sourceMap: true,
@@ -421,13 +438,13 @@ export class BackendStack extends cdk.NestedStack {
     // Grant Lambda permissions to write to DynamoDB
     feedbackTable.grantWriteData(feedbackLambda)
 
-    // Create API Gateway
+    // Create API Gateway with CORS allowing all origins (protected by Cognito authentication)
     const api = new apigateway.RestApi(this, "FeedbackApi", {
       restApiName: `${config.stack_name_base}-api`,
       description: "API for user feedback and future endpoints",
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowMethods: ["POST", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
       },
       deployOptions: {

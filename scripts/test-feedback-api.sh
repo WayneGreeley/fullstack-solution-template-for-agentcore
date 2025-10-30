@@ -11,6 +11,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Check required dependencies
+for cmd in aws jq curl; do
+  if ! command -v $cmd &> /dev/null; then
+    echo -e "${RED}Error: $cmd is required but not installed.${NC}"
+    exit 1
+  fi
+done
+
 echo "=========================================="
 echo "Feedback API Test Script"
 echo "=========================================="
@@ -70,39 +78,8 @@ USER_EXISTS=$(aws cognito-idp admin-get-user \
     --username "$USERNAME" 2>/dev/null && echo "yes" || echo "no")
 
 if [ "$USER_EXISTS" = "no" ]; then
-    echo -e "${YELLOW}User '$USERNAME' does not exist.${NC}"
-    read -p "Would you like to create this user? (y/n): " CREATE_USER
-    
-    if [ "$CREATE_USER" = "y" ] || [ "$CREATE_USER" = "Y" ]; then
-        read -s -p "Enter password for new user: " NEW_PASSWORD
-        echo ""
-        read -s -p "Confirm password: " CONFIRM_PASSWORD
-        echo ""
-        
-        if [ "$NEW_PASSWORD" != "$CONFIRM_PASSWORD" ]; then
-            echo -e "${RED}Passwords do not match. Exiting.${NC}"
-            exit 1
-        fi
-        
-        echo "Creating user..."
-        aws cognito-idp admin-create-user \
-            --user-pool-id "$USER_POOL_ID" \
-            --username "$USERNAME" \
-            --temporary-password "TempPass123!" \
-            --message-action SUPPRESS > /dev/null
-        
-        aws cognito-idp admin-set-user-password \
-            --user-pool-id "$USER_POOL_ID" \
-            --username "$USERNAME" \
-            --password "$NEW_PASSWORD" \
-            --permanent > /dev/null
-        
-        echo -e "${GREEN}✓ User created successfully${NC}"
-        PASSWORD="$NEW_PASSWORD"
-    else
-        echo "Exiting."
-        exit 0
-    fi
+    echo -e "${RED}User '$USERNAME' does not exist. Exiting.${NC}"
+    exit 1
 else
     read -s -p "Enter password for $USERNAME: " PASSWORD
     echo ""
@@ -145,15 +122,15 @@ echo ""
 PASSED=0
 FAILED=0
 
-# Test 1: Thumbs up feedback
-echo "Test 1: Sending thumbs up feedback..."
+# Test 1: Positive feedback
+echo "Test 1: Sending positive feedback..."
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/feedback" \
   -H "Authorization: Bearer ${COGNITO_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-session-123",
     "message": "This is a great AI response about AWS services",
-    "isThumbsUp": true
+    "feedbackType": "positive"
   }')
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
@@ -170,15 +147,15 @@ else
 fi
 echo ""
 
-# Test 2: Thumbs down feedback
-echo "Test 2: Sending thumbs down feedback..."
+# Test 2: Negative feedback
+echo "Test 2: Sending negative feedback..."
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/feedback" \
   -H "Authorization: Bearer ${COGNITO_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-session-456",
     "message": "This response was not helpful for pricing questions",
-    "isThumbsUp": false
+    "feedbackType": "negative"
   }')
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
