@@ -15,11 +15,11 @@ const memory = new cdk.CfnResource(this, "AgentMemory", {
   type: "AWS::BedrockAgentCore::Memory",
   properties: {
     Name: "MyAgentMemory",
-    EventExpiryDuration: 7,  // Days to retain (7-365)
-    MemoryStrategies: [],  // Empty = short-term only
-    MemoryExecutionRoleArn: executionRole.roleArn
-  }
-})
+    EventExpiryDuration: 7, // Days to retain (7-365)
+    MemoryStrategies: [], // Empty = short-term only
+    MemoryExecutionRoleArn: executionRole.roleArn,
+  },
+});
 ```
 
 ### Advanced Memory (With Strategies)
@@ -33,27 +33,27 @@ const memory = new cdk.CfnResource(this, "AgentMemory", {
     Description: "Memory with intelligent extraction",
     MemoryStrategies: [
       {
-        summaryMemoryStrategy: {
-          name: "SessionSummarizer",
-          namespaces: ["/summaries/{actorId}/{sessionId}"]
-        }
+        SummaryMemoryStrategy: {
+          Name: "SessionSummarizer",
+          Namespaces: ["/summaries/{actorId}/{sessionId}"],
+        },
       },
       {
-        userPreferenceMemoryStrategy: {
-          name: "PreferenceLearner",
-          namespaces: ["/preferences/{actorId}"]
-        }
+        UserPreferenceMemoryStrategy: {
+          Name: "PreferenceLearner",
+          Namespaces: ["/preferences/{actorId}"],
+        },
       },
       {
-        semanticMemoryStrategy: {
-          name: "FactExtractor",
-          namespaces: ["/facts/{actorId}"]
-        }
-      }
+        SemanticMemoryStrategy: {
+          Name: "FactExtractor",
+          Namespaces: ["/facts/{actorId}"],
+        },
+      },
     ],
-    MemoryExecutionRoleArn: executionRole.roleArn
-  }
-})
+    MemoryExecutionRoleArn: executionRole.roleArn,
+  },
+});
 ```
 
 ### Required IAM Permissions
@@ -63,24 +63,29 @@ new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
   actions: [
     "bedrock-agentcore:CreateEvent",
+    "bedrock-agentcore:GetEvent",
     "bedrock-agentcore:ListEvents",
-    "bedrock-agentcore:GetMemory",
-    "bedrock-agentcore:CreateMemorySession",
-    "bedrock-agentcore:RetrieveMemories"
+    "bedrock-agentcore:RetrieveMemoryRecords",
   ],
-  resources: [memoryArn]
-})
+  resources: [memoryArn],
+});
 ```
+
+**Permission Breakdown:**
+
+- `CreateEvent`, `GetEvent`, `ListEvents`: For short-term memory (conversation history)
+- `RetrieveMemoryRecords`: For long-term memory (summaries, preferences, facts from strategies)
 
 ### Understanding Memory Configuration
 
 **Memory Parameters**
+
 - **EventExpiryDuration**: 7-365 days
 - **MemoryStrategies**: Empty for short-term, array for long-term
 - **actor_id**: User identifier
 - **session_id/thread_id**: Conversation identifier
 
-**Memory Strategies** 
+**Memory Strategies**
 | Strategy | Purpose | Namespace |
 |----------|---------|-----------|
 | `summaryMemoryStrategy` | Auto-summarize sessions | `/summaries/{actorId}/{sessionId}` |
@@ -94,11 +99,13 @@ new iam.PolicyStatement({
 ### Using Strands?
 
 **Install:**
+
 ```bash
 pip install bedrock-agentcore[strands-agents]
 ```
 
 **Code:**
+
 ```python
 import os
 from strands import Agent
@@ -129,6 +136,7 @@ agent = Agent(
 ```
 
 **With strategies (if configured in CDK):**
+
 ```python
 from bedrock_agentcore.memory.integrations.strands.config import RetrievalConfig
 
@@ -168,7 +176,7 @@ user_session = session_manager.create_memory_session(
 class MemoryHookProvider(HookProvider):
     def __init__(self, memory_session: MemorySession):
         self.memory_session = memory_session
-    
+
     def on_agent_initialized(self, event: AgentInitializedEvent):
         """Load recent conversation history when agent starts"""
         recent_turns = self.memory_session.get_last_k_turns(k=5)
@@ -180,21 +188,21 @@ class MemoryHookProvider(HookProvider):
                     role = message['role']
                     content = message['content']['text']
                     context_messages.append(f"{role}: {content}")
-            
+
             context = "\n".join(context_messages)
             event.agent.system_prompt += f"\n\nRecent conversation:\n{context}"
-    
+
     def on_message_added(self, event: MessageAddedEvent):
         """Store new messages in memory"""
         messages = event.agent.messages
         if messages and len(messages) > 0:
             message_text = messages[-1]["content"][0]["text"]
             message_role = MessageRole.USER if messages[-1]["role"] == "user" else MessageRole.ASSISTANT
-            
+
             self.memory_session.add_turns(
                 messages=[ConversationalMessage(message_text, message_role)]
             )
-    
+
     def register_hooks(self, registry: HookRegistry):
         registry.add_callback(MessageAddedEvent, self.on_message_added)
         registry.add_callback(AgentInitializedEvent, self.on_agent_initialized)
@@ -215,11 +223,13 @@ agent = Agent(
 ### Using LangGraph?
 
 **Install:**
+
 ```bash
 pip install langgraph-checkpoint-aws
 ```
 
 **Short-term memory (Checkpointer):**
+
 ```python
 from langchain.chat_models import init_chat_model
 from langgraph.prebuilt import create_react_agent
@@ -246,6 +256,7 @@ response = graph.invoke({"messages": [("human", "Hello")]}, config=config)
 ```
 
 **Long-term memory (Store):**
+
 ```python
 from langgraph_checkpoint_aws import AgentCoreMemoryStore
 from langchain_core.runnables import RunnableConfig
@@ -258,13 +269,13 @@ def pre_model_hook(state, config: RunnableConfig, *, store):
     actor_id = config["configurable"]["actor_id"]
     thread_id = config["configurable"]["thread_id"]
     namespace = (actor_id, thread_id)
-    
+
     messages = state.get("messages", [])
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
             store.put(namespace, str(uuid.uuid4()), {"message": msg})
             break
-    
+
     return {"llm_input_messages": messages}
 
 graph = create_react_agent(
@@ -283,14 +294,17 @@ graph = create_react_agent(
 ## Resources
 
 ### Documentation
+
 - [AgentCore Memory Overview](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html)
 - [Memory API Reference](https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/welcome.html)
 - [CloudFormation Resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-bedrockagentcore-memory.html)
 
 ### Code Examples
+
 - [AgentCore Samples Repository](https://github.com/awslabs/amazon-bedrock-agentcore-samples)
 - [LangChain AWS Integration](https://github.com/langchain-ai/langchain-aws/tree/main/samples/memory)
 - [Strands Integration](https://strandsagents.com/latest/documentation/docs/community/session-managers/agentcore-memory/)
 
 ### Community
+
 - Slack: `#bedrock-agentcore-memory-interest`

@@ -313,14 +313,33 @@ export class BackendStack extends cdk.NestedStack {
     // Create AgentCore execution role
     const agentRole = new AgentCoreRole(this, "AgentCoreRole")
 
-    // Create new memory resource using CloudFormation
+    // Create new memory resource with long-term strategies using CloudFormation
     const memory = new cdk.CfnResource(this, "AgentMemory", {
       type: "AWS::BedrockAgentCore::Memory",
       properties: {
-        Name: `${config.stack_name_base.replace(/-/g, "_")}_${this.agentName.valueAsString}_Memory`,
-        EventExpiryDuration: 7,
-        Description: `Memory for ${config.stack_name_base} agent`,
-        MemoryStrategies: [],
+        Name: cdk.Names.uniqueResourceName(this, { maxLength: 48 }),
+        EventExpiryDuration: 30,
+        Description: `Long-term memory for ${config.stack_name_base} agent with intelligent extraction`,
+        MemoryStrategies: [
+          {
+            SummaryMemoryStrategy: {
+              Name: "SessionSummarizer",
+              Namespaces: ["/summaries/{actorId}/{sessionId}"],
+            },
+          },
+          {
+            UserPreferenceMemoryStrategy: {
+              Name: "PreferenceLearner",
+              Namespaces: ["/preferences/{actorId}"],
+            },
+          },
+          {
+            SemanticMemoryStrategy: {
+              Name: "FactExtractor",
+              Namespaces: ["/facts/{actorId}"],
+            },
+          },
+        ],
         MemoryExecutionRoleArn: agentRole.roleArn,
         Tags: {
           Name: `${config.stack_name_base}_Memory`,
@@ -337,14 +356,10 @@ export class BackendStack extends cdk.NestedStack {
         sid: "MemoryResourceAccess",
         effect: iam.Effect.ALLOW,
         actions: [
-          "bedrock-agentcore:GetMemory",
-          "bedrock-agentcore:ListMemories",
-          "bedrock-agentcore:CreateMemorySession",
-          "bedrock-agentcore:GetMemorySession",
-          "bedrock-agentcore:DeleteMemorySession",
           "bedrock-agentcore:CreateEvent",
           "bedrock-agentcore:GetEvent",
           "bedrock-agentcore:ListEvents",
+          "bedrock-agentcore:RetrieveMemoryRecords",
         ],
         resources: [memoryArn],
       })

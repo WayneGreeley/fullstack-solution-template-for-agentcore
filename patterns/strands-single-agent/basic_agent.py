@@ -4,7 +4,7 @@ from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 # Note: Using Strands session manager for memory integration: https://strandsagents.com/latest/documentation/docs/community/session-managers/agentcore-memory/
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
-from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
 
 app = BedrockAgentCoreApp()
 
@@ -21,12 +21,20 @@ def create_basic_agent(user_id, session_id) -> Agent:
     if not memory_id:
         raise ValueError("MEMORY_ID environment variable is required")
     
-    # Configure AgentCore Memory using official session manager with basic memory config. 
-    # If memory was created with strategies (summaries/preferences/facts), add retrieval_config here to customize retrieval behavior
+    # Configure AgentCore Memory with long-term strategies
+    # Retrieval config enables the agent to leverage summaries, preferences, and facts
     agentcore_memory_config = AgentCoreMemoryConfig(
         memory_id=memory_id,
         session_id=session_id,
-        actor_id=user_id
+        actor_id=user_id,
+        retrieval_config={
+            # User preferences: High relevance threshold for accurate preference matching
+            "/preferences/{actorId}": RetrievalConfig(top_k=5, relevance_score=0.7),
+            # Facts: Lower threshold to capture more contextual information
+            "/facts/{actorId}": RetrievalConfig(top_k=10, relevance_score=0.3),
+            # Session summaries: Moderate threshold for conversation context
+            "/summaries/{actorId}/{sessionId}": RetrievalConfig(top_k=3, relevance_score=0.5)
+        }
     )
     
     session_manager = AgentCoreMemorySessionManager(
