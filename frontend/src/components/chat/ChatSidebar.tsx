@@ -1,7 +1,6 @@
 "use client"
 
-import { MessageSquare, Plus, Home } from "lucide-react"
-import Link from "next/link"
+import { MessageSquare, Plus } from "lucide-react"
 import { ChatSession } from "./types"
 import {
   Sidebar,
@@ -13,7 +12,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 
@@ -30,19 +28,9 @@ export function ChatSidebar({
   onSessionSelect,
   onNewChat,
 }: ChatSidebarProps) {
-  const { state } = useSidebar()
-
   return (
     <Sidebar>
       <SidebarHeader className="p-4 space-y-2">
-        {state === "expanded" && (
-          <Button asChild variant="outline" className="w-full justify-start gap-2">
-            <Link href="/">
-              <Home className="h-4 w-4" />
-              Back to Home
-            </Link>
-          </Button>
-        )}
         <Button onClick={onNewChat} className="w-full justify-start gap-2">
           <Plus className="h-4 w-4" />
           New Chat
@@ -53,7 +41,7 @@ export function ChatSidebar({
           <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sessions.map(session => (
+              {sessions.map((session) => (
                 <SidebarMenuItem key={session.id}>
                   <SidebarMenuButton
                     onClick={() => onSessionSelect(session)}

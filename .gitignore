@@ -26,3 +26,4 @@ notebooks/examples/data
 **/.envrc
 **/node_modules
 **/.next
+frontend/public/aws-exports.json

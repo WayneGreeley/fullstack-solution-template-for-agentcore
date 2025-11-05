@@ -1,16 +1,14 @@
 "use client"
 
-import { ReactNode, useEffect, useState } from "react"
+import { ReactNode, useEffect, useState, PropsWithChildren } from "react"
 import { useAuth } from "react-oidc-context"
 import { Button } from "@/components/ui/button"
 
-function AutoSigninContent({ children }: { children: ReactNode }) {
+function AutoSigninContent({ children }: PropsWithChildren) {
   const auth = useAuth()
 
   if (auth.isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl">Loading...</div>
-    )
+    return <div className="flex items-center justify-center min-h-screen text-xl">Loading...</div>
   }
 
   if (!auth.isAuthenticated) {

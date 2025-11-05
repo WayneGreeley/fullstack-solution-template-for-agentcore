@@ -37,6 +37,7 @@ export class GaspMainStack extends cdk.Stack {
       userPoolClientId: this.cognitoStack.userPoolClientId,
     })
 
+    // Outputs
     new cdk.CfnOutput(this, "AmplifyAppId", {
       value: this.amplifyHostingStack.amplifyApp.appId,
       description: "Amplify App ID - use this for manual deployment",

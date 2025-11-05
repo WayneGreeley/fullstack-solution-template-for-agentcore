@@ -1,7 +1,7 @@
 "use client"
 
 import { createCognitoAuthConfig, cognitoAuthConfig } from "@/lib/auth"
-import { ReactNode, useEffect, useState } from "react"
+import { useEffect, useState, PropsWithChildren } from "react"
 import { AuthProvider as OidcAuthProvider } from "react-oidc-context"
 import { WebStorageStateStore } from "oidc-client-ts"
 import { AutoSignin } from "./AutoSignin"
@@ -17,7 +17,7 @@ interface CognitoAuthConfig {
   userStore?: WebStorageStateStore
 }
 
-const AuthProvider = ({ children }: { children: ReactNode }) => {
+const AuthProvider = ({ children }: PropsWithChildren) => {
   const [authConfig, setAuthConfig] = useState<CognitoAuthConfig | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -28,6 +28,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAuthConfig(config)
       } catch (error) {
         console.error("Failed to load auth configuration:", error)
+        console.error("Falling back to environment variables")
         // Fallback to env vars on error
         setAuthConfig(cognitoAuthConfig)
       } finally {

@@ -1,51 +1,49 @@
-# GenAI React Launch Kit
+# AgentCore Starter Pack - Frontend
 
-**The easiest way to build modern GenAI frontends.** Start here for a flexible, production-ready
-React application that works with any backend.
+**The perfect starting point for GenAI scientists and architects.** This frontend application is
+part of the AgentCore Starter Pack, providing a flexible, production-ready React foundation that
+works seamlessly with any backend.
 
-**Why start here?** Stop scratching your head about how to setup a modern React application. This
-solves the major issues that everyone faces, without locking you in to a particular backend.
+**Why start here?** Skip the frontend setup complexity and jump straight into building your GenAI
+applications. This starter pack gives you everything you need to create sophisticated user
+interfaces without requiring deep React or TypeScript knowledge - perfect for vibe coding with AI
+assistants.
 
 What you get:
 
 - A React/Next.js application that's ready to go
 - Built-in Cognito authentication support
-- Example GenAI interface patterns ready to vibe
-- One-command setup scripts for:
-  - Cognito
-  - Public hosting via AWS Amplify
-
-![GenAI React Launch Kit](readme-imgs/landing-page.png)
-
-## What's Included
-
-This project showcases a few GenAI interface patterns as examples of what may be useful, or to serve
-as inspiration for what you can create for your own engagements:
-
-- **Chat Interface** - Real-time conversational AI with chat history
-- **Form Generator** - Submit forms and process with GenAI workflows
-- **Document Analyzer** - Upload and analyze documents with AI-powered insights
+- A basic chat interface as your starting foundation
+- Rich set of shadcn UI primitives for rapid development
+- Vibe coding friendly - no React or TypeScript expertise required
 
 ![Chat example](readme-imgs/chat-example2.gif)
 
-![Document analyzer](readme-imgs/doc-analyzer.gif)
+## What's Included
+
+This starter pack provides a solid foundation with a basic chat interface that you can extend and customize for your specific GenAI applications. The included components serve as building blocks for creating sophisticated user experiences:
+
+- **Basic Chat Interface** - Your starting point for conversational AI applications
+- **Rich UI Component Library** - Complete shadcn component set for rapid development
+- **Authentication Ready** - Cognito integration built-in and ready to configure
+- **Vibe Coding Optimized** - Perfect structure for AI-assisted development
 
 ## Why This Stack?
 
-Many GenAIIC engagements require some type of UI to truly show the power of what we build. However,
-boottrapping a well-designed frontend application is (still) a challenge. This stack aims to solve
-that, giving the what you need to start delivering value without added bloat that you don't need.
+GenAI scientists and architects need to focus on their core expertise - not wrestling with frontend
+setup. This starter pack eliminates the complexity of modern React development while providing a
+robust foundation that scales with your needs.
 
-Also, React Launch Kit is built on popular libraries that are agnostic to styling, while still
-giving you a consistent look and feel. Coding agents are very good at working with these
-foundational components, so you can take this in any direction that you need.
+**Perfect for Vibe Coding:** The stack is specifically chosen to work seamlessly with AI coding
+assistants. You don't need to be a React or TypeScript expert - just describe what you want to build
+and let AI assistants handle the implementation details.
 
-- **React & Next.js** - Modern React framework
-- **Tailwind CSS** - Utility-first styling (infinitely flexible)
-- **Shadcn Components** - Pre-built UI components (in `src/components/ui`)
+- **React & Next.js** - Modern React framework with excellent AI assistant support
+- **TypeScript** - Type safety without the learning curve (AI handles the complexity)
+- **Tailwind CSS** - Utility-first styling that AI assistants understand perfectly
+- **Shadcn Components** - Rich set of pre-built UI primitives (in `src/components/ui`)
 
-The combination makes it extremely easy to vibe code new components with AI assistants. The only
-limitation is your creativity!
+The combination makes it extremely easy to vibe code sophisticated interfaces with AI assistants. Whether you're building chat interfaces, data visualization dashboards, or complex forms - the primitives are all here and ready to extend. The only limitation is your creativity!
 
 ## Quickstart
 
@@ -56,16 +54,12 @@ limitation is your creativity!
 
 ### Installation
 
-Fork this repostory, _or_, clone it and remove the `.git` repository so that you can add it to your
-own repo:
-
-```
-git clone git@ssh.gitlab.aws.dev:genaiic-reusable-assets/shareable-assets/genai-react-launch-kit.git
-cd genai-react-launch-kit
-rm -rf .git
-```
+This frontend is part of the AgentCore Starter Pack. Navigate to the frontend directory and install dependencies:
 
 ```bash
+# Navigate to frontend directory
+cd frontend
+
 # Install dependencies
 npm install
 
@@ -73,168 +67,108 @@ npm install
 npm run dev
 ```
 
-That's it! Visit [http://localhost:3000](http://localhost:3000) to see the various patterns. Start
-making changes, and your browswer will auto reload. It's that simple to get started.
+That's it! Visit [http://localhost:3000](http://localhost:3000) to see your basic chat interface. Start making changes, and your browser will auto reload. It's that simple to get started building your GenAI application.
 
 **NOTE** Authentication is optional during development - the app runs without any auth setup. This
 makes local development fast and easy! However, once you deploy it to a public endpoint you'll want
 to add authentication with Cognito. Continue reading to learn how to easily do that.
 
+## Building with AI Assistants (Vibe Coding)
+
+This starter pack is optimized for AI-assisted development. Here's how to get the most out of vibe coding:
+
+### Getting Started with AI Assistants
+
+1. **Describe your vision**: Tell your AI assistant what you want to build - "Create a document upload component with drag-and-drop functionality"
+2. **Leverage the primitives**: The shadcn components provide rich building blocks that AI assistants understand well
+3. **Iterate quickly**: Make changes, see results instantly, and refine with your AI assistant
+
+### Key Directories for AI Development
+
+- `src/components/ui/` - Pre-built shadcn components (buttons, forms, dialogs, etc.)
+- `src/components/` - Your custom components go here
+- `src/app/` - Next.js app router pages and layouts
+- `src/lib/` - Utility functions and configurations
+
+### Example AI Prompts
+
+- "Add a file upload component to the chat interface"
+- "Create a sidebar with navigation for different AI tools"
+- "Build a data visualization dashboard using the existing design system"
+- "Add a settings page with form validation"
+
+The TypeScript and Tailwind setup means AI assistants can generate type-safe, well-styled components without you needing to understand the underlying complexity.
+
 ## Deployment
 
-The `bin/` directory includes scripts for fast and easy deployment using AWS Amplify Hosting.
-Amplify is simpler than rolling your own CloudFront + S3 bucket.
+Deploying your frontend is incredibly simple with the AgentCore Starter Pack. The infrastructure and frontend deployment are handled by automated scripts from the root directory.
 
-These steps are all driven by scripts included in the `bin` directory, along with a some manual
-configuration.
+### Prerequisites
 
-1. Setup Amplify (one-time)
-1. Deploy to Amplify
-1. Add cognito auth
-   1. Create Cognito User Pool
-   1. Configure application
-   1. Re-deploy to Amplify
+- AWS CLI configured with appropriate permissions
+- Node.js and npm installed
 
-### Step 1: One-time Setup
+### Deploy Everything
 
-There is a one-time setup to create your Amplify project. You will need the `APP_ID` and
-`DEPLOYMENT_BUCKET` values for the next step.
+From the **root directory** of the AgentCore Starter Pack, run these two commands:
 
 ```bash
-# Make sure you're authenticated with your AWS account
-./bin/amplify-setup.sh
-...
-...
------------------------------------------------------
-ℹ Copy these values into the amplify-deploy.sh script:
-APP_ID=f12eivw5jgg2kn
-DEPLOYMENT_BUCKET=zambb-amplify-builds-5be23b8a
------------------------------------------------------
+# Deploy the CDK infrastructure (includes Cognito User Pool)
+./scripts/deploy-cdk.sh
+
+# Deploy the frontend application
+./scripts/deploy-frontend.sh
 ```
 
-### Step 2: Deploy
+That's it! The deployment scripts will:
 
-1. Copy the `APP_ID` and `DEPLOYMENT_BUCKET` from above
-2. Update these values in the top of `bin/amplify-deploy.sh`
+1. **Infrastructure Setup**: Create all necessary AWS resources including Cognito User Pool, S3 buckets, and hosting infrastructure
+2. **Cognito Integration**: Automatically configure the frontend with the Cognito User Pool created by the CDK deployment
+3. **Frontend Deployment**: Build and deploy your React application with all authentication properly configured
 
-```
---- a/bin/amplify-deploy.sh
-+++ b/bin/amplify-deploy.sh
-@@ -11,9 +11,9 @@ NC='\033[0m' # No Color
- # Configuration
- #
- # Replace with your actual Amplify Hosting app ID
--APP_ID=YOUR_APP_ID
-+APP_ID=f12eivw5jgg2kn
- # Replace with the bucket created from the amplify-setup script
--DEPLOYMENT_BUCKET=USER-amplify-builds-6a5cbe5a
-+DEPLOYMENT_BUCKET=zambb-amplify-builds-5be23b8a
-```
+### What Gets Created
 
-3. Deploy:
+The CDK deployment automatically sets up:
+
+- **Cognito User Pool** - Ready for user authentication
+- **S3 Bucket** - For hosting your frontend application
+- **CloudFront Distribution** - For global content delivery
+- **IAM Roles** - With appropriate permissions for your application
+
+The frontend deployment script automatically configures the React app with the correct Cognito settings from the infrastructure deployment.
+
+## Local Development
+
+### Development Mode
+
+For local development, simply run:
 
 ```bash
-./bin/amplify-deploy.sh
-...
-...
-ℹ S3 Package: s3://zambb-amplify-builds-5be23b8a/amplify-deploy-1757716942.zip
-ℹ Console: https://console.aws.amazon.com/amplify/apps
-ℹ App URL: https://main.d12eivw5jgg2kn.amplifyapp.com
+cd frontend
+npm run dev
 ```
 
-You'll see some logs during the build stating:
+The app runs without authentication by default, making local development fast and easy. Your browser will auto-reload when you make changes.
 
-```
-Cognito not configured. Proceeding with public view
-```
+### Testing with Cognito Locally
 
-This is ok. You'll add cognito in the next step.
+If you want to test Cognito authentication locally after deployment:
 
-Open up the `App URL`, which will look like `https://main.d12eivw5jgg2kn.amplifyapp.com`, to see
-your deployed application.
-
-## Step 3: Add Cognito Authentication
-
-You're not done...your application need authentication!
-
-### Step 1: Create User Pool
-
-Open up the `create-cognito-user-pool.sh` script, and update the `CALLBACK_URL` to the public
-amplify URL (`App URL` from above):
-
-```
---- a/bin/create-cognito-user-pool.sh
-+++ b/bin/create-cognito-user-pool.sh
-@@ -1,7 +1,7 @@
- #!/bin/bash
-
- # Set this to the Amplify-generated URL, output from the amplify-deploy script.
--CALLBACK_URL=
-+CALLBACK_URL=https://main.d12eivw5jgg2kn.amplifyapp.com
-
- # Validate callback URL is set
- if [ -z "$CALLBACK_URL" ]; then
-```
-
-Run the script to create your Cognito User Pool.
-
-```bash
-./bin/create-cognito-user-pool.sh
-...
-...
-# Add these to your .env.local file:
-NEXT_PUBLIC_COGNITO_REGION=us-west-2
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-west-2_dOjqX1rTg
-NEXT_PUBLIC_COGNITO_CLIENT_ID=6grocs4b70gucr0ircinderbel
-NEXT_PUBLIC_COGNITO_REDIRECT_URI=https://main.d12eivw5jgg2kn.amplifyapp.com/
-```
-
-### Step 2: Configure Environment
-
-1. Copy the `NEXT_PUBLIC_*` environment variables from the script output
-2. Add them to a `.env.local` file (you'll need to create this file)
-3. Build and deploy again with `./bin/amplify-deploy.sh`
-4. Visit your page, and you should be greeted with a login screen.
-
-![login page](readme-imgs/login-page.png)
-
-### Step 3: Add a User
-
-1. Navigate to the Cognito User Pool in the AWS Console
-2. Add a new user for yourself, marking your email as verified
-3. Wait a couple of minutes to get an email with your temporary password
-
-![Cognito add user](readme-imgs/cognito-add-user.png)
-
-That's it! Click the login button to authenticate with Cognito.
-
-## Local development
-
-### Disabling Cognito
-
-Developing locally with `npm run dev` is the best way to operate during development. The app will
-reload when you save your changes. If you have setup Cognito and would like to disable during local
-development, simply comment out one of the variables in `.env.local`:
-
-```
-NEXT_PUBLIC_COGNITO_REGION=us-west-2
-# NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-west-2_t2gKC6WfU
-NEXT_PUBLIC_COGNITO_CLIENT_ID=7a0vt2mupc83cf8rgd29okrg93
-NEXT_PUBLIC_COGNITO_REDIRECT_URI=https://main.d23l1lah9i85ek.amplifyapp.com/
-```
-
-The application will notice that one of the varaibles isn't set, and skip the Cognito auth. \*Make
-sure to _uncomment_ that before you re-deploy to Amplify
-
-### Testing Cognito locally
-
-If you'd like to run locally _and_ test cognito, change the following variable in `.env.local`
+1. The deployment scripts automatically generate a `.env.local` file with the correct Cognito configuration
+2. Update the redirect URI in `.env.local` to use localhost:
 
 ```
 NEXT_PUBLIC_COGNITO_REDIRECT_URI=http://localhost:3000
 ```
 
-## Cognito Troubleshooting
+3. Remember to change it back to your deployed URL before redeploying
 
-Any issues you run into will likely be from misconfigurations. Feel free to reach out to zambb@ as
-he's made all of thos mistakes many times over. :>)
+### Adding Users
+
+After deployment, you can add users to your Cognito User Pool:
+
+1. Navigate to the Cognito User Pool in the AWS Console
+2. Add a new user, marking their email as verified
+3. The user will receive an email with their temporary password
+
+The Cognito integration is handled automatically by the AgentCore infrastructure - no manual configuration required!

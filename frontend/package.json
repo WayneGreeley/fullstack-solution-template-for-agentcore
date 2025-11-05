@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf build/ node_modules/ .next/"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.1.7",

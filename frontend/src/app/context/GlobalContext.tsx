@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, ReactNode, useState } from "react"
+import { createContext, PropsWithChildren, useContext, useState } from "react"
 
 interface GlobalContextType {
   thingOne: string
@@ -11,7 +11,7 @@ interface GlobalContextType {
 
 const GlobalContext = createContext<GlobalContextType | undefined>(undefined)
 
-export function GlobalContextProvider({ children }: { children: ReactNode }) {
+export function GlobalContextProvider({ children }: PropsWithChildren) {
   const [thingOne, setThingOne] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
