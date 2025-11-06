@@ -1,10 +1,13 @@
-# Scripts
+# Test Scripts
 
 Utility scripts for deployment verification and operational tasks.
 
 ## Setup
 
 ```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Create virtual environment
 uv venv
 
@@ -12,15 +15,54 @@ uv venv
 uv pip install -r requirements.txt
 ```
 
-## Running Scripts
+## Available Scripts
 
-Run any script using:
+### test-agent-invocation.py
+
+Interactive chat interface for testing agent invocations with conversation continuity.
+
+**Modes:**
+- **Remote** (default): Test deployed agent via Cognito authentication
+- **Local** (`--local`): Test agent running on localhost:8080
+
+**Usage:**
 
 ```bash
-uv run python scripts/<script-name>.py
+# Remote mode (prompts for credentials)
+uv run python scripts/test-agent-invocation.py
+
+# Local mode (auto-starts agent if not running)
+uv run python scripts/test-agent-invocation.py --local
 ```
 
-## Available Scripts
+**Prerequisites:**
+- Remote: Deployed stack with Cognito user
+- Local: Memory ID from deployed stack
+
+---
+
+### test-memory.py
+
+Tests AgentCore Memory operations (create, list, get events and pagination).
+
+**Usage:**
+
+```bash
+# Auto-discover memory from stack
+uv run python scripts/test-memory.py
+
+# Use specific memory ARN
+uv run python scripts/test-memory.py --memory-arn <arn>
+```
+
+**Tests:**
+1. Create conversation events
+2. List events with pagination
+3. Get specific events by ID
+4. Session ID validation
+5. Error handling
+
+---
 
 ### test-feedback-api.py
 
@@ -43,3 +85,20 @@ uv run python scripts/test-feedback-api.py
 2. Authenticates with Cognito (prompts for credentials)
 3. Runs API tests (positive/negative feedback, validation)
 4. Displays test results
+
+---
+
+## Shared Utilities
+
+`test_utils.py` provides common functions:
+- Stack configuration and SSM parameter retrieval
+- Cognito authentication
+- AWS client creation
+- Session ID generation
+
+## Troubleshooting
+
+- **Authentication fails**: Verify Cognito user exists and credentials are correct
+- **Stack not found**: Ensure stack is deployed and `config.yaml` has correct `stack_name_base`
+- **Local agent fails**: Check Memory ID and AWS credentials are configured
+- **Port 8080 in use**: Stop other services or use remote mode

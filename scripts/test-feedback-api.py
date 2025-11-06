@@ -6,104 +6,18 @@ Test script for Feedback API
 import sys
 import json
 import getpass
-from pathlib import Path
 from typing import Dict, Optional, Tuple
-import boto3
 import requests
-import yaml
-from colorama import Fore, Style, init
+from colorama import Fore, Style
 
-# Initialize colorama for cross-platform colored output
-init(autoreset=True)
-
-def load_stack_name() -> str:
-    """Load stack name from config.yaml."""
-    # Get the script's directory and navigate to config.yaml
-    script_dir = Path(__file__).parent
-    config_path = script_dir.parent / "infra-cdk" / "config.yaml"
-    
-    if not config_path.exists():
-        raise FileNotFoundError(
-            f"Configuration file not found at: {config_path}\n"
-            f"Make sure you're running from the project directory."
-        )
-    
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-    
-    if "stack_name_base" not in config:
-        raise KeyError(
-            f"'stack_name_base' not found in {config_path}\n"
-            f"Please add 'stack_name_base' to your config.yaml"
-        )
-    
-    return config["stack_name_base"]
-
-
-def fetch_config_from_ssm(stack_name: str) -> Dict[str, str]:
-    """Fetch configuration from AWS SSM Parameter Store."""
-    print("Fetching configuration from SSM...")
-    
-    ssm = boto3.client("ssm")
-    
-    try:
-        user_pool_id = ssm.get_parameter(
-            Name=f"/{stack_name}/cognito-user-pool-id"
-        )["Parameter"]["Value"]
-        
-        client_id = ssm.get_parameter(
-            Name=f"/{stack_name}/cognito-user-pool-client-id"
-        )["Parameter"]["Value"]
-        
-        api_url = ssm.get_parameter(
-            Name=f"/{stack_name}/feedback-api-url"
-        )["Parameter"]["Value"]
-        
-        print(f"{Fore.GREEN}✓ Configuration fetched successfully{Style.RESET_ALL}")
-        print(f"  User Pool ID: {user_pool_id}")
-        print(f"  Client ID: {client_id}")
-        print(f"  API URL: {api_url}")
-        
-        return {
-            "user_pool_id": user_pool_id,
-            "client_id": client_id,
-            "api_url": api_url.rstrip("/"),
-        }
-    except Exception as e:
-        print(f"{Fore.RED}Error: Could not fetch configuration from SSM.{Style.RESET_ALL}")
-        print("Make sure the stack is deployed and you have AWS credentials configured.")
-        print(f"Details: {e}")
-        sys.exit(1)
-
-
-def authenticate(user_pool_id: str, client_id: str, username: str, password: str) -> str:
-    """Authenticate with Cognito and return ID token."""
-    print("\nAuthenticating...")
-    
-    cognito = boto3.client("cognito-idp")
-    
-    try:
-        # Check if user exists
-        try:
-            cognito.admin_get_user(UserPoolId=user_pool_id, Username=username)
-        except cognito.exceptions.UserNotFoundException:
-            print(f"{Fore.RED}User '{username}' does not exist. Exiting.{Style.RESET_ALL}")
-            sys.exit(1)
-        
-        # Authenticate
-        response = cognito.initiate_auth(
-            AuthFlow="USER_PASSWORD_AUTH",
-            ClientId=client_id,
-            AuthParameters={"USERNAME": username, "PASSWORD": password},
-        )
-        
-        token = response["AuthenticationResult"]["IdToken"]
-        print(f"{Fore.GREEN}✓ Authentication successful{Style.RESET_ALL}")
-        return token
-        
-    except Exception as e:
-        print(f"{Fore.RED}Authentication failed: {e}{Style.RESET_ALL}")
-        sys.exit(1)
+# Import shared utilities
+from test_utils import (
+    get_stack_config,
+    get_ssm_params,
+    authenticate_cognito,
+    print_msg,
+    print_section,
+)
 
 
 def make_api_request(
@@ -125,7 +39,7 @@ def make_api_request(
         
         return response.status_code, response.json()
     except requests.exceptions.RequestException as e:
-        print(f"{Fore.RED}Request failed: {e}{Style.RESET_ALL}")
+        print_msg(f"Request failed: {e}", "error")
         return 0, {}
 
 
@@ -216,9 +130,7 @@ def run_tests(api_url: str, token: str) -> Tuple[int, int]:
     1. Create a new test function following the pattern above
     2. Add it to the tests list below
     """
-    print("\n" + "=" * 42)
-    print("Running Tests")
-    print("=" * 42 + "\n")
+    print_section("Running Tests", width=42)
     
     # Add new tests to this list
     tests = [
@@ -246,24 +158,38 @@ def main():
     print("=" * 42 + "\n")
     
     # Load configuration
-    stack_name = load_stack_name()
-    print(f"Using stack: {stack_name}\n")
+    config = get_stack_config()
+    print(f"Using stack: {config['stack_name']}\n")
     
-    config = fetch_config_from_ssm(stack_name)
+    # Fetch SSM params
+    print("Fetching configuration from SSM...")
+    params = get_ssm_params(
+        config['stack_name'],
+        'cognito-user-pool-id',
+        'cognito-user-pool-client-id',
+        'feedback-api-url'
+    )
+    print_msg("Configuration fetched successfully")
+    print(f"  User Pool ID: {params['cognito-user-pool-id']}")
+    print(f"  Client ID: {params['cognito-user-pool-client-id']}")
+    print(f"  API URL: {params['feedback-api-url']}")
     
     # Get credentials
-    print("\n" + "=" * 42)
-    print("Authentication")
-    print("=" * 42 + "\n")
+    print_section("Authentication", width=42)
     
     username = input("Enter username: ").strip() or "testuser"
     password = getpass.getpass(f"Enter password for {username}: ")
     
     # Authenticate
-    token = authenticate(config["user_pool_id"], config["client_id"], username, password)
+    access_token, _user_id = authenticate_cognito(
+        params['cognito-user-pool-id'],
+        params['cognito-user-pool-client-id'],
+        username,
+        password
+    )
     
     # Run tests
-    passed, failed = run_tests(config["api_url"], token)
+    passed, failed = run_tests(params['feedback-api-url'], access_token)
     
     # Summary
     print("\n" + "=" * 42)
@@ -274,7 +200,7 @@ def main():
     
     # NOTE: Table name follows the pattern '{stack_name}-feedback' defined in infra-cdk/lib/backend-stack.ts
     # If you change the table name in CDK, update this reference accordingly.
-    print(f"To view the stored feedback, open the DynamoDB table named '{stack_name}-feedback' in the AWS Console.\n")
+    print(f"To view the stored feedback, open the DynamoDB table named '{config['stack_name']}-feedback' in the AWS Console.\n")
     
     if failed == 0:
         print(f"{Fore.GREEN}All tests passed! ✓{Style.RESET_ALL}")
