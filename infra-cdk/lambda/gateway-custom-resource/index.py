@@ -3,10 +3,11 @@ Custom Resource Lambda for AgentCore Gateway Management
 """
 
 import json
-import boto3
-import time
 import logging
-from typing import Dict, Any
+import time
+from typing import Any, Dict
+
+import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,7 +57,7 @@ def create_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
                 # Extract gateway URL - construct if not provided
                 gateway_url = gateway_details.get('gatewayUrl')
                 if not gateway_url:
-                    logger.warning(f"Gateway URL not in response, constructing from gateway ID")
+                    logger.warning("Gateway URL not in response, constructing from gateway ID")
                     gateway_url = f"https://{gateway_id}.gateway.bedrock-agentcore.{props['Region']}.amazonaws.com/mcp"
                 
                 return send_response(event, 'SUCCESS', data={
@@ -95,7 +96,7 @@ def create_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
     # Extract gateway URL - construct if not provided
     gateway_url = gateway_details.get('gatewayUrl')
     if not gateway_url:
-        logger.warning(f"Gateway URL not in response, constructing from gateway ID")
+        logger.warning("Gateway URL not in response, constructing from gateway ID")
         gateway_url = f"https://{gateway_id}.gateway.bedrock-agentcore.{props['Region']}.amazonaws.com/mcp"
     
     logger.info(f"Gateway URL: {gateway_url}")
@@ -114,7 +115,7 @@ def update_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
     
     # If Gateway name changed, delete old and create new
     if old_props.get('GatewayName') != props.get('GatewayName'):
-        logger.info(f"Gateway name changed, recreating...")
+        logger.info("Gateway name changed, recreating...")
         delete_gateway(event)
         return create_gateway(event, props)
     
@@ -125,7 +126,7 @@ def update_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
     # Extract gateway URL - construct if not provided
     gateway_url = gateway_details.get('gatewayUrl')
     if not gateway_url:
-        logger.warning(f"Gateway URL not in response, constructing from gateway ID")
+        logger.warning("Gateway URL not in response, constructing from gateway ID")
         gateway_url = f"https://{gateway_id}.gateway.bedrock-agentcore.{props['Region']}.amazonaws.com/mcp"
     
     return send_response(event, 'SUCCESS', data={
@@ -269,7 +270,7 @@ def send_response(event: Dict[str, Any], status: str, reason: str = None,
     logger.info(f"Sending response: {json.dumps(response_body)}")
     
     http = urllib3.PoolManager()
-    response = http.request(
+    http.request(
         'PUT',
         event['ResponseURL'],
         body=json.dumps(response_body).encode('utf-8'),
