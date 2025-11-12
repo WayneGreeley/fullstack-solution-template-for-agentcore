@@ -51,17 +51,17 @@ ssm_client = boto3.client("ssm")
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for AgentCore Gateway custom resource operations.
-    
+
     Processes CloudFormation custom resource events (CREATE, UPDATE, DELETE) and
     manages the corresponding AgentCore Gateway lifecycle operations.
-    
+
     Args:
         event: CloudFormation custom resource event containing request type and properties
         context: Lambda execution context (unused but required by Lambda interface)
-        
+
     Returns:
         Dict containing CloudFormation response with status and resource data
-        
+
     Raises:
         Handles all exceptions internally and returns FAILED status to CloudFormation
     """
@@ -88,18 +88,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 def create_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, Any]:
     """
     Creates a new AgentCore Gateway with Lambda targets.
-    
+
     This function handles the CREATE operation for the custom resource. It:
     1. Checks if a gateway with the same name already exists (idempotent operation)
     2. Creates a new gateway with JWT authorization if none exists
     3. Waits for the gateway to become ready
     4. Creates Lambda targets for tool execution
     5. Stores configuration parameters in SSM
-    
+
     Args:
         event: CloudFormation event data
         props: Resource properties from CloudFormation template
-        
+
     Returns:
         CloudFormation response with gateway details
     """
@@ -192,16 +192,16 @@ def create_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
 def update_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, Any]:
     """
     Updates an existing AgentCore Gateway configuration.
-    
+
     Handles UPDATE operations by:
     1. Checking if gateway name changed (requires recreation)
     2. Updating Lambda targets with new configuration
     3. Refreshing SSM parameters with updated values
-    
+
     Args:
         event: CloudFormation event data with old and new properties
         props: New resource properties from CloudFormation template
-        
+
     Returns:
         CloudFormation response with updated gateway details
     """
@@ -241,15 +241,15 @@ def update_gateway(event: Dict[str, Any], props: Dict[str, Any]) -> Dict[str, An
 def delete_gateway(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deletes an AgentCore Gateway and all associated resources.
-    
+
     Handles DELETE operations by:
     1. Deleting all Lambda targets associated with the gateway
     2. Deleting the gateway itself
     3. Gracefully handling cases where resources may already be deleted
-    
+
     Args:
         event: CloudFormation event data containing gateway ID
-        
+
     Returns:
         CloudFormation response indicating successful deletion
     """
@@ -276,20 +276,20 @@ def create_target_with_retry(
 ) -> str:
     """
     Creates a Lambda target for the gateway with retry logic.
-    
+
     Lambda targets define how the gateway routes tool calls to specific Lambda functions.
     This function implements exponential backoff retry logic to handle cases where
     the gateway is still in a transitional state.
-    
+
     Args:
         gateway_id: The AgentCore Gateway identifier
         lambda_arn: ARN of the Lambda function to target
         api_spec: Tool specification defining available tools and their schemas
         max_retries: Maximum number of retry attempts
-        
+
     Returns:
         Target ID of the created Lambda target
-        
+
     Raises:
         Exception: If target creation fails after all retry attempts
     """
@@ -327,17 +327,17 @@ def create_target_with_retry(
 def create_or_update_target(gateway_id: str, lambda_arn: str, api_spec: list) -> str:
     """
     Creates a new Lambda target or updates an existing one.
-    
+
     This function provides idempotent target management by:
     1. Checking if targets already exist for the gateway
     2. Updating existing targets with new configuration
     3. Creating new targets if none exist
-    
+
     Args:
         gateway_id: The AgentCore Gateway identifier
         lambda_arn: ARN of the Lambda function to target
         api_spec: Tool specification defining available tools and their schemas
-        
+
     Returns:
         Target ID of the created or updated Lambda target
     """
@@ -371,14 +371,14 @@ def create_or_update_target(gateway_id: str, lambda_arn: str, api_spec: list) ->
 def wait_for_gateway_ready(gateway_id: str, max_wait: int = 120) -> None:
     """
     Waits for the gateway to reach READY status before proceeding.
-    
+
     AgentCore Gateways go through various states during creation. This function
     polls the gateway status until it's ready for target creation or fails.
-    
+
     Args:
         gateway_id: The AgentCore Gateway identifier
         max_wait: Maximum time to wait in seconds
-        
+
     Raises:
         Exception: If gateway doesn't become ready within the timeout period
                   or enters a failed state
@@ -403,10 +403,10 @@ def update_ssm_parameters(
 ) -> None:
     """
     Stores gateway configuration in SSM Parameter Store for access by other components.
-    
+
     This function persists gateway configuration that other parts of the system need,
     such as the frontend for API calls and the runtime for tool execution.
-    
+
     Args:
         gateway_details: Gateway information from AgentCore API
         target_id: Lambda target identifier
@@ -444,17 +444,17 @@ def send_response(
 ) -> Dict[str, Any]:
     """
     Sends response back to CloudFormation to complete the custom resource operation.
-    
+
     This function is required for all CloudFormation custom resources to signal
     completion status back to CloudFormation, allowing the stack operation to proceed.
-    
+
     Args:
         event: Original CloudFormation event
         status: SUCCESS or FAILED
         reason: Optional reason for the status
         data: Optional data to return to CloudFormation
         physical_resource_id: Unique identifier for the resource
-        
+
     Returns:
         Response body that was sent to CloudFormation
     """
