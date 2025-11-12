@@ -2,15 +2,15 @@ FROM public.ecr.aws/docker/library/python:3.11-slim
 
 WORKDIR /app
 
-# Copy GASP package files needed for installation
-COPY ../../gateway gateway/
-COPY ../../pyproject.toml pyproject.toml
+# Copy the necessary files for package installation
+COPY pyproject.toml .
+COPY gateway/ gateway/
 
 # Install GASP package
 RUN pip install --no-cache-dir -e .
 
 # Install agent requirements
-COPY requirements.txt requirements.txt
+COPY patterns/strands-single-agent/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir aws-opentelemetry-distro==0.10.1
 
@@ -24,7 +24,8 @@ USER bedrock_agentcore
 EXPOSE 8080
 EXPOSE 8000
 
-COPY . .
+# Copy only the agent code
+COPY patterns/strands-single-agent/basic_agent.py .
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/ping || exit 1

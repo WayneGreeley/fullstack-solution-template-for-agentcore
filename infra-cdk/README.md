@@ -93,20 +93,97 @@ npm run watch
 
 ## Deployment Details
 
-The CDK deployment creates:
+The CDK deployment creates multiple stacks with a specific deployment order:
+
+### Stack Architecture & Deployment Order
+
+1. **Cognito Stack** (CognitoStack):
+   - Cognito User Pool for user authentication
+   - User Pool Client for frontend OAuth flows
+   - User Pool Domain for hosted UI
+
+2. **Backend Stack** (BackendStack):
+   - **Machine Client & Resource Server**: OAuth2 client credentials for service-to-service auth
+   - **AgentCore Gateway**: API gateway for tool integration with Lambda targets
+   - **AgentCore Runtime**: Bedrock AgentCore runtime for agent execution
+   - **Supporting Resources**: IAM roles, DynamoDB tables, API Gateway for feedback
+
+3. **Amplify Hosting Stack** (AmplifyHostingStack):
+   - Amplify app for frontend hosting
+   - Branch configuration for deployments
+   - Custom domain setup (if configured)
+
+### Component Dependencies
+
+Within the Backend Stack, components are created in this order:
+1. **Cognito Integration**: Import user pool from Cognito stack
+2. **Machine Client**: Create OAuth2 client for M2M authentication
+3. **Gateway**: Create AgentCore Gateway (depends on machine client)
+4. **Runtime**: Create AgentCore Runtime (independent of gateway)
+
+This order ensures authentication components are available before services that depend on them, while keeping the runtime deployment separate since it doesn't directly depend on the gateway.
+
+### Docker Build Configuration
+
+The agent container builds use a specific configuration to handle the repository structure efficiently:
+
+#### Build Context Strategy
+
+**Problem**: Agent patterns need access to the shared `gateway/` utilities package, but Docker build contexts cannot access parent directories using `../` paths.
+
+**Solution**: Use repository root as build context with optimized file filtering:
+
+1. **Build Context**: Repository root (`/home/ubuntu/gitlab/genaiid-agentcore-starter-pack/`)
+2. **Dockerfile Location**: `patterns/{pattern}/Dockerfile` 
+3. **Package Installation**: Install GASP package (`gateway/` + `pyproject.toml`) as proper Python package
+4. **File Filtering**: `.dockerignore` excludes large directories to prevent build hangs
+
+#### Docker Context Optimization
+
+**Issue**: Large build contexts (including `node_modules/`, `.git/`, etc.) cause Docker builds to hang during the "transferring context" phase, especially in CDK deployments.
+
+**Solution**: `.dockerignore` file at repository root excludes:
+- `node_modules/` directories (frontend and infra)
+- `.git/` version control data  
+- Build artifacts (`cdk.out/`, `.next/`, `dist/`)
+- Cache directories (`.ruff_cache/`, `__pycache__/`)
+
+**Result**: Build context reduced from ~100MB+ to ~10MB, eliminating hang issues.
+
+#### Package-Based Architecture
+
+Instead of copying files with relative paths, the Dockerfile:
+
+1. **Installs GASP package**: `RUN pip install --no-cache-dir -e .`
+   - Makes `gateway` utilities available as `from gateway.utils.*`
+   - Eliminates need for file copying between directories
+   - Works consistently across all agent patterns
+
+2. **Copies only agent code**: `COPY patterns/strands-single-agent/basic_agent.py .`
+   - Minimal file copying for the specific agent
+   - Clean separation between shared utilities and agent logic
+
+3. **Removes problematic requirements**: Cleaned `requirements.txt` to avoid duplicate GASP installation
+
+This approach scales to multiple agent patterns without code duplication while maintaining clean Docker builds.
+
+### Key Resources Created
 
 1. **Backend Stack**: 
-   - Cognito User Pool for authentication
-   - ECR repository for agent container
-   - CodeBuild project to build agent image
-   - Bedrock AgentCore runtime
+   - Cognito User Pool integration and machine client
+   - AgentCore Gateway with Lambda tool targets
+   - AgentCore Runtime for agent execution
+   - ECR repository for agent container images
+   - CodeBuild project for container builds
+   - DynamoDB table for application data
+   - API Gateway for feedback endpoints
    - IAM roles and policies
 
-2. **Frontend Stack**:
-   - S3 bucket for static website hosting
-   - CloudFront distribution with HTTPS
-   - Origin Access Control (OAC) for security
-   - Automatic frontend build and deployment
+2. **Amplify Hosting Stack**:
+   - Amplify app for frontend deployment
+   - Automatic builds from Git branches
+   - Custom domain and SSL certificate integration
+   - Environment-specific deployments
 
 ## Troubleshooting
 

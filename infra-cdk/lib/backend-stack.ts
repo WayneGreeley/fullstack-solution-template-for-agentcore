@@ -1,126 +1,58 @@
 import * as cdk from "aws-cdk-lib"
 import * as cognito from "aws-cdk-lib/aws-cognito"
-import * as ecr from "aws-cdk-lib/aws-ecr"
-import * as codebuild from "aws-cdk-lib/aws-codebuild"
 import * as iam from "aws-cdk-lib/aws-iam"
-import * as s3Assets from "aws-cdk-lib/aws-s3-assets"
 import * as ssm from "aws-cdk-lib/aws-ssm"
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb"
 import * as apigateway from "aws-cdk-lib/aws-apigateway"
 import * as logs from "aws-cdk-lib/aws-logs"
-import * as customResources from "aws-cdk-lib/custom-resources"
-// Note: Using CfnResource for BedrockAgentCore as the L2 construct may not be available yet
+import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha"
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha"
 import * as lambda from "aws-cdk-lib/aws-lambda"
+import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"
 import { Construct } from "constructs"
 import { AppConfig } from "./utils/config-manager"
 import { AgentCoreRole } from "./utils/agentcore-role"
+import * as customResources from "aws-cdk-lib/custom-resources"
 import * as path from "path"
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   config: AppConfig
+  userPoolId: string
+  userPoolClientId: string
+  userPoolDomain: cognito.UserPoolDomain
 }
 
 export class BackendStack extends cdk.NestedStack {
-  public userPool: cognito.UserPool
-  public userPoolClient: cognito.UserPoolClient
-  public userPoolDomain: cognito.UserPoolDomain
+  public readonly userPoolId: string
+  public readonly userPoolClientId: string
+  public readonly userPoolDomain: cognito.UserPoolDomain
+  public feedbackApiUrl: string
   public runtimeArn: string
-  public ecrRepository: ecr.Repository
-  public buildProject: codebuild.Project
   private agentName: cdk.CfnParameter
-  private imageTag: cdk.CfnParameter
   private networkMode: cdk.CfnParameter
-  private agentRuntime: cdk.CfnResource
+  private userPool: cognito.IUserPool
+  private userPoolClient: cognito.IUserPoolClient
   private machineClient: cognito.UserPoolClient
+  private agentRuntime: agentcore.Runtime
 
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props)
 
-    // Create Cognito User Pool first
-    this.createCognitoUserPool(props.config)
+    // Store the Cognito values
+    this.userPoolId = props.userPoolId
+    this.userPoolClientId = props.userPoolClientId
+    this.userPoolDomain = props.userPoolDomain
 
-    // Store Cognito config in SSM for frontend stack
-    this.createCognitoSSMParameters(props.config)
+    // Import the Cognito resources from the other stack
+    this.userPool = cognito.UserPool.fromUserPoolId(this, "ImportedUserPoolForBackend", props.userPoolId)
+    this.userPoolClient = cognito.UserPoolClient.fromUserPoolClientId(this, "ImportedUserPoolClient", props.userPoolClientId)
 
-    // Create ECR repository and CodeBuild project
-    this.createECRAndCodeBuild(props.config)
-
-    // Create AgentCore Runtime resources
-    this.createAgentCoreRuntime(props.config)
-
-    // Store runtime ARN in SSM for frontend stack
-    this.createRuntimeSSMParameters(props.config)
-
-    // Create AgentCore Gateway (after Runtime is created)
-    this.createAgentCoreGateway(props.config)
-
-    // Create Feedback DynamoDB table (example of application data storage)
-    const feedbackTable = this.createFeedbackTable(props.config)
-
-    // Create Feedback API resources (example of best-practice API Gateway + Lambda pattern)
-    this.createFeedbackApi(props.config, feedbackTable)
-  }
-
-  private createCognitoUserPool(config: AppConfig): void {
-    this.userPool = new cognito.UserPool(this, "UserPool", {
-      userPoolName: `${config.stack_name_base}-user-pool`,
-      selfSignUpEnabled: false,
-      signInAliases: {
-        email: true,
-      },
-      autoVerify: {
-        email: true,
-      },
-      standardAttributes: {
-        email: {
-          required: true,
-          mutable: false,
-        },
-      },
-      passwordPolicy: {
-        minLength: 8,
-        requireLowercase: true,
-        requireUppercase: true,
-        requireDigits: true,
-        requireSymbols: true,
-      },
-      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      userInvitation: {
-        emailSubject: `Welcome to ${config.stack_name_base}!`,
-        emailBody: `<p>Hello {username},</p>
-<p>Welcome to ${config.stack_name_base}! Your username is <strong>{username}</strong> and your temporary password is: <strong>{####}</strong></p>
-<p>Please use this temporary password to log in and set your permanent password.</p>
-<p>The CloudFront URL to your application is stored as an output in the "${config.stack_name_base}" stack, and will be printed to your terminal once the deployment process completes.</p>
-<p>Thanks,</p>
-<p>AWS GENAIIC Team</p>`,
-      },
-    })
-
-    this.userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
-      userPool: this.userPool,
-      userPoolClientName: `${config.stack_name_base}-client`,
-      generateSecret: false,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-      oAuth: {
-        flows: {
-          authorizationCodeGrant: true,
-        },
-        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        callbackUrls: ["http://localhost:5173", "https://localhost:5173"],
-      },
-      preventUserExistenceErrors: true,
-    })
-
-    // Create Resource Server for M2M authentication
+    // Create Resource Server for Machine-to-Machine (M2M) authentication
+    // This defines the API scopes that machine clients can request access to
     const resourceServer = new cognito.UserPoolResourceServer(this, "ResourceServer", {
       userPool: this.userPool,
-      identifier: `${config.stack_name_base}-gateway`,
-      userPoolResourceServerName: `${config.stack_name_base}-gateway-resource-server`,
+      identifier: `${props.config.stack_name_base}-gateway`,
+      userPoolResourceServerName: `${props.config.stack_name_base}-gateway-resource-server`,
       scopes: [
         new cognito.ResourceServerScope({
           scopeName: "read",
@@ -133,16 +65,35 @@ export class BackendStack extends cdk.NestedStack {
       ],
     })
 
-    // Create Machine Client for Runtime-to-Gateway authentication
+    // Create Machine Client for AgentCore Gateway authentication
+    // 
+    // WHAT IS A MACHINE CLIENT?
+    // A machine client is a Cognito User Pool Client configured for server-to-server authentication
+    // using the OAuth2 Client Credentials flow. Unlike user-facing clients, it doesn't require
+    // human interaction or user credentials.
+    //
+    // HOW IS IT DIFFERENT FROM THE REGULAR USER POOL CLIENT?
+    // - Regular client: Uses Authorization Code flow for human users (frontend login)
+    // - Machine client: Uses Client Credentials flow for service-to-service authentication
+    // - Regular client: No client secret (public client for frontend security)
+    // - Machine client: Has client secret (confidential client for backend security)
+    // - Regular client: Scopes are openid, email, profile (user identity)
+    // - Machine client: Scopes are custom resource server scopes (API permissions)
+    //
+    // WHY IS IT NEEDED?
+    // The AgentCore Gateway needs to authenticate with Cognito to validate tokens and make
+    // API calls on behalf of the system. The machine client provides the credentials for
+    // this service-to-service authentication without requiring user interaction.
     this.machineClient = new cognito.UserPoolClient(this, "MachineClient", {
       userPool: this.userPool,
-      userPoolClientName: `${config.stack_name_base}-machine-client`,
-      generateSecret: true,
+      userPoolClientName: `${props.config.stack_name_base}-machine-client`,
+      generateSecret: true, // Required for client credentials flow
       oAuth: {
         flows: {
-          clientCredentials: true,
+          clientCredentials: true, // Enable OAuth2 Client Credentials flow
         },
         scopes: [
+          // Grant access to the resource server scopes defined above
           cognito.OAuthScope.resourceServer(resourceServer, 
             new cognito.ResourceServerScope({
               scopeName: "read",
@@ -162,69 +113,36 @@ export class BackendStack extends cdk.NestedStack {
     // Machine client must be created after resource server
     this.machineClient.node.addDependency(resourceServer)
 
-    this.userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
-      userPool: this.userPool,
-      cognitoDomain: {
-        domainPrefix: `${config.stack_name_base}-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
-      },
-    })
+    // DEPLOYMENT ORDER EXPLANATION:
+    // 1. Cognito User Pool & Client (created in separate CognitoStack)
+    // 2. Machine Client & Resource Server (created above for M2M auth)
+    // 3. AgentCore Gateway (created next - uses machine client for auth)
+    // 4. AgentCore Runtime (created last - independent of gateway)
+    //
+    // This order ensures that authentication components are available before
+    // the gateway that depends on them, while keeping the runtime separate
+    // since it doesn't directly depend on the gateway.
 
-    // Create admin user if email is provided in config
-    if (config.admin_user_email) {
-      const adminUser = new cognito.CfnUserPoolUser(this, "AdminUser", {
-        userPoolId: this.userPool.userPoolId,
-        username: config.admin_user_email,
-        userAttributes: [
-          {
-            name: "email",
-            value: config.admin_user_email,
-          },
-        ],
-        desiredDeliveryMediums: ["EMAIL"],
-      })
+    // Create AgentCore Gateway (before Runtime)
+    this.createAgentCoreGateway(props.config)
 
-      // Output admin user creation status
-      new cdk.CfnOutput(this, "AdminUserCreated", {
-        description: "Admin user created and credentials emailed",
-        value: `Admin user created: ${config.admin_user_email}`,
-      })
-    }
+    // Create AgentCore Runtime resources
+    this.createAgentCoreRuntime(props.config)
+
+    // Store runtime ARN in SSM for frontend stack
+    this.createRuntimeSSMParameters(props.config)
+
+    // Store Cognito configuration in SSM for testing and frontend
+    this.createCognitoSSMParameters(props.config)
+
+    // Create Feedback DynamoDB table (example of application data storage)
+    const feedbackTable = this.createFeedbackTable(props.config)
+
+    // Create Feedback API resources (example of best-practice API Gateway + Lambda pattern)
+    this.createFeedbackApi(props.config, feedbackTable)
   }
 
-  private createCognitoSSMParameters(config: AppConfig): void {
-    new ssm.StringParameter(this, "CognitoUserPoolIdParam", {
-      parameterName: `/${config.stack_name_base}/cognito-user-pool-id`,
-      stringValue: this.userPool.userPoolId,
-    })
-
-    new ssm.StringParameter(this, "CognitoUserPoolClientIdParam", {
-      parameterName: `/${config.stack_name_base}/cognito-user-pool-client-id`,
-      stringValue: this.userPoolClient.userPoolClientId,
-    })
-
-    new ssm.StringParameter(this, "CognitoDomainParam", {
-      parameterName: `/${config.stack_name_base}/cognito-domain`,
-      stringValue: `${this.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
-    })
-
-    // Machine client parameters for M2M authentication
-    new ssm.StringParameter(this, "CognitoProviderParam", {
-      parameterName: `/${config.stack_name_base}/cognito_provider`,
-      stringValue: `${this.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
-    })
-
-    new ssm.StringParameter(this, "MachineClientIdParam", {
-      parameterName: `/${config.stack_name_base}/machine_client_id`,
-      stringValue: this.machineClient.userPoolClientId,
-    })
-
-    new ssm.StringParameter(this, "MachineClientSecretParam", {
-      parameterName: `/${config.stack_name_base}/machine_client_secret`,
-      stringValue: this.machineClient.userPoolClientSecret.unsafeUnwrap(),
-    })
-  }
-
-  private createECRAndCodeBuild(config: AppConfig): void {
+  private createAgentCoreRuntime(config: AppConfig): void {
     const pattern = config.backend?.pattern || "strands-single-agent"
 
     // Parameters
@@ -234,12 +152,6 @@ export class BackendStack extends cdk.NestedStack {
       description: "Name for the agent runtime",
     })
 
-    this.imageTag = new cdk.CfnParameter(this, "ImageTag", {
-      type: "String",
-      default: "latest",
-      description: "Tag for the Docker image",
-    })
-
     this.networkMode = new cdk.CfnParameter(this, "NetworkMode", {
       type: "String",
       default: "PUBLIC",
@@ -247,145 +159,32 @@ export class BackendStack extends cdk.NestedStack {
       allowedValues: ["PUBLIC", "PRIVATE"],
     })
 
-    // ECR Repository
-    this.ecrRepository = new ecr.Repository(this, "ECRRepository", {
-      repositoryName: `${config.stack_name_base.toLowerCase()}-${pattern}`,
-      imageTagMutability: ecr.TagMutability.MUTABLE,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
-      imageScanOnPush: true,
-    })
+    const stack = cdk.Stack.of(this)
 
-    // S3 Asset for source code
-    const patternPath = path.join(__dirname, "..", "..", "patterns", pattern)
-    const sourceAsset = new s3Assets.Asset(this, "SourceAsset", {
-      path: patternPath,
-    })
+    // Create the agent runtime artifact from local Docker context with ARM64 platform
+    // 
+    // DOCKER BUILD CONTEXT STRATEGY:
+    // Use repository root as build context to install GASP package, but with optimized
+    // Dockerfile that installs the package and only copies necessary agent files.
+    const agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(
+      path.resolve(__dirname, "..", ".."),
+      {
+        platform: ecr_assets.Platform.LINUX_ARM64,
+        file: `patterns/${pattern}/Dockerfile`,
+      }
+    )
 
-    // CodeBuild Role
-    const codebuildRole = new iam.Role(this, "CodeBuildRole", {
-      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
-      inlinePolicies: {
-        CodeBuildPolicy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              sid: "CloudWatchLogs",
-              effect: iam.Effect.ALLOW,
-              actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
-              resources: [`arn:aws:logs:${this.region}:${this.account}:log-group:/aws/codebuild/*`],
-            }),
-            new iam.PolicyStatement({
-              sid: "ECRAccess",
-              effect: iam.Effect.ALLOW,
-              actions: [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage",
-                "ecr:GetAuthorizationToken",
-                "ecr:PutImage",
-                "ecr:InitiateLayerUpload",
-                "ecr:UploadLayerPart",
-                "ecr:CompleteLayerUpload",
-              ],
-              resources: [this.ecrRepository.repositoryArn, "*"],
-            }),
-            new iam.PolicyStatement({
-              sid: "S3SourceAccess",
-              effect: iam.Effect.ALLOW,
-              actions: ["s3:GetObject"],
-              resources: [`${sourceAsset.bucket.bucketArn}/*`],
-            }),
-          ],
-        }),
-      },
-    })
+    // Configure network mode
+    const networkConfiguration =
+      this.networkMode.valueAsString === "PRIVATE"
+        ? undefined // For private mode, you would need to configure VPC settings
+        : agentcore.RuntimeNetworkConfiguration.usingPublicNetwork()
 
-    // CodeBuild Project
-    this.buildProject = new codebuild.Project(this, "AgentImageBuildProject", {
-      projectName: `${config.stack_name_base}-${pattern}-build`,
-      description: `Build ${pattern} agent Docker image for ${config.stack_name_base}`,
-      role: codebuildRole,
-      environment: {
-        buildImage: codebuild.LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0,
-        computeType: codebuild.ComputeType.LARGE,
-        privileged: true,
-      },
-      source: codebuild.Source.s3({
-        bucket: sourceAsset.bucket,
-        path: sourceAsset.s3ObjectKey,
-      }),
-      buildSpec: codebuild.BuildSpec.fromObject({
-        version: "0.2",
-        phases: {
-          pre_build: {
-            commands: [
-              "echo Logging in to Amazon ECR...",
-              "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com",
-            ],
-          },
-          build: {
-            commands: [
-              "echo Build started on `date`",
-              "echo Building the Docker image for agent ARM64...",
-              "docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .",
-              "docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG",
-            ],
-          },
-          post_build: {
-            commands: [
-              "echo Build completed on `date`",
-              "echo Pushing the Docker image...",
-              "docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG",
-              "echo ARM64 Docker image pushed successfully",
-            ],
-          },
-        },
-      }),
-      environmentVariables: {
-        AWS_DEFAULT_REGION: {
-          value: this.region,
-        },
-        AWS_ACCOUNT_ID: {
-          value: this.account,
-        },
-        IMAGE_REPO_NAME: {
-          value: this.ecrRepository.repositoryName,
-        },
-        IMAGE_TAG: {
-          value: this.imageTag.valueAsString,
-        },
-        STACK_NAME: {
-          value: config.stack_name_base,
-        },
-      },
-    })
-  }
-
-  private createAgentCoreRuntime(config: AppConfig): void {
-    const pattern = config.backend?.pattern || "strands-single-agent"
-
-    // Lambda function to trigger and wait for CodeBuild using Python 3.13
-    const buildTriggerFunction = new PythonFunction(this, "BuildTriggerFunction", {
-      entry: path.join(__dirname, "utils", "build-trigger-lambda"),
-      runtime: lambda.Runtime.PYTHON_3_13,
-      handler: "handler",
-      timeout: cdk.Duration.minutes(15),
-      initialPolicy: [
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ["codebuild:StartBuild", "codebuild:BatchGetBuilds"],
-          resources: [this.buildProject.projectArn],
-        }),
-      ],
-    })
-
-    // Custom Resource using the Lambda function
-    const triggerBuild = new cdk.CustomResource(this, "TriggerImageBuild", {
-      serviceToken: buildTriggerFunction.functionArn,
-      properties: {
-        ProjectName: this.buildProject.projectName,
-      },
-    })
+    // Configure JWT authorizer with Cognito
+    const authorizerConfiguration = agentcore.RuntimeAuthorizerConfiguration.usingJWT(
+      `https://cognito-idp.${stack.region}.amazonaws.com/${this.userPoolId}/.well-known/openid-configuration`,
+      [this.userPoolClientId]
+    )
 
     // Create AgentCore execution role
     const agentRole = new AgentCoreRole(this, "AgentCoreRole")
@@ -434,53 +233,38 @@ export class BackendStack extends cdk.NestedStack {
       })
     )
 
-    // Create AgentCore Runtime with JWT authorizer using CloudFormation resource
-    this.agentRuntime = new cdk.CfnResource(this, "AgentRuntime", {
-      type: "AWS::BedrockAgentCore::Runtime",
-      properties: {
-        AgentRuntimeName: `${config.stack_name_base.replace(/-/g, "_")}_${
-          this.agentName.valueAsString
-        }`,
-        AgentRuntimeArtifact: {
-          ContainerConfiguration: {
-            ContainerUri: `${this.ecrRepository.repositoryUri}:${this.imageTag.valueAsString}`,
-          },
-        },
-        NetworkConfiguration: {
-          NetworkMode: this.networkMode.valueAsString,
-        },
-        ProtocolConfiguration: "HTTP",
-        RoleArn: agentRole.roleArn,
-        Description: `${pattern} agent runtime for ${config.stack_name_base} - v2 with Gateway`,
-        EnvironmentVariables: {
-          AWS_DEFAULT_REGION: this.region,
-          MEMORY_ID: memoryId,
-          STACK_NAME: config.stack_name_base,
-        },
-        // Add JWT authorizer with Cognito configuration
-        AuthorizerConfiguration: {
-          CustomJWTAuthorizer: {
-            DiscoveryUrl: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/openid-configuration`,
-            AllowedClients: [this.userPoolClient.userPoolClientId, this.machineClient.userPoolClientId],
-          },
-        },
-      },
+    // Environment variables for the runtime
+    const envVars: { [key: string]: string } = {
+      AWS_REGION: stack.region,
+      AWS_DEFAULT_REGION: stack.region,
+      MEMORY_ID: memoryId,
+      STACK_NAME: config.stack_name_base, // Required for agent to find SSM parameters
+    }
+
+    // Create the runtime using L2 construct
+    this.agentRuntime = new agentcore.Runtime(this, "Runtime", {
+      runtimeName: `${config.stack_name_base.replace(/-/g, "_")}_${this.agentName.valueAsString}`,
+      agentRuntimeArtifact: agentRuntimeArtifact,
+      executionRole: agentRole,
+      networkConfiguration: networkConfiguration,
+      protocolConfiguration: agentcore.ProtocolType.HTTP,
+      environmentVariables: envVars,
+      authorizerConfiguration: authorizerConfiguration,
+      description: `${pattern} agent runtime for ${config.stack_name_base}`,
     })
 
-    this.agentRuntime.node.addDependency(triggerBuild)
-
     // Store the runtime ARN
-    this.runtimeArn = this.agentRuntime.getAtt("AgentRuntimeArn").toString()
+    this.runtimeArn = this.agentRuntime.agentRuntimeArn
 
     // Outputs
     new cdk.CfnOutput(this, "AgentRuntimeId", {
       description: "ID of the created agent runtime",
-      value: this.agentRuntime.getAtt("AgentRuntimeId").toString(),
+      value: this.agentRuntime.agentRuntimeId,
     })
 
     new cdk.CfnOutput(this, "AgentRuntimeArn", {
       description: "ARN of the created agent runtime",
-      value: this.agentRuntime.getAtt("AgentRuntimeArn").toString(),
+      value: this.agentRuntime.agentRuntimeArn,
       exportName: `${config.stack_name_base}-AgentRuntimeArn`,
     })
 
@@ -489,19 +273,11 @@ export class BackendStack extends cdk.NestedStack {
       value: agentRole.roleArn,
     })
 
-    new cdk.CfnOutput(this, "CognitoUserPoolId", {
-      description: "Cognito User Pool ID - create users manually in AWS Console",
-      value: this.userPool.userPoolId,
-    })
-
     // Memory ARN output
     new cdk.CfnOutput(this, "MemoryArn", {
       description: "ARN of the agent memory resource",
       value: memoryArn,
     })
-
-    // Ensure the custom resource depends on the build project
-    triggerBuild.node.addDependency(this.buildProject)
   }
 
   private createRuntimeSSMParameters(config: AppConfig): void {
@@ -509,6 +285,40 @@ export class BackendStack extends cdk.NestedStack {
     new ssm.StringParameter(this, "RuntimeArnParam", {
       parameterName: `/${config.stack_name_base}/runtime-arn`,
       stringValue: this.runtimeArn,
+    })
+  }
+
+  private createCognitoSSMParameters(config: AppConfig): void {
+    // Store Cognito configuration in SSM for testing and frontend access
+    new ssm.StringParameter(this, "CognitoUserPoolIdParam", {
+      parameterName: `/${config.stack_name_base}/cognito-user-pool-id`,
+      stringValue: this.userPoolId,
+      description: "Cognito User Pool ID",
+    })
+
+    new ssm.StringParameter(this, "CognitoUserPoolClientIdParam", {
+      parameterName: `/${config.stack_name_base}/cognito-user-pool-client-id`, 
+      stringValue: this.userPoolClientId,
+      description: "Cognito User Pool Client ID",
+    })
+
+    new ssm.StringParameter(this, "MachineClientIdParam", {
+      parameterName: `/${config.stack_name_base}/machine_client_id`,
+      stringValue: this.machineClient.userPoolClientId,
+      description: "Machine Client ID for M2M authentication",
+    })
+
+    new ssm.StringParameter(this, "MachineClientSecretParam", {
+      parameterName: `/${config.stack_name_base}/machine_client_secret`,
+      stringValue: this.machineClient.userPoolClientSecret.unsafeUnwrap(),
+      description: "Machine Client Secret for M2M authentication",
+    })
+
+    // Use the correct Cognito domain format from the passed domain
+    new ssm.StringParameter(this, "CognitoDomainParam", {
+      parameterName: `/${config.stack_name_base}/cognito_provider`,
+      stringValue: `${this.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
+      description: "Cognito domain URL for token endpoint",
     })
   }
 
@@ -622,6 +432,9 @@ export class BackendStack extends cdk.NestedStack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     })
 
+    // Store the API URL for access from main stack
+    this.feedbackApiUrl = api.url
+
     // Store API URL in SSM for frontend
     new ssm.StringParameter(this, "FeedbackApiUrlParam", {
       parameterName: `/${config.stack_name_base}/feedback-api-url`,
@@ -635,8 +448,7 @@ export class BackendStack extends cdk.NestedStack {
       value: api.url,
     })
   }
-
-  private createAgentCoreGateway(config: AppConfig): void {
+private createAgentCoreGateway(config: AppConfig): void {
     // Create sample tool Lambda
     const toolLambda = new lambda.Function(this, "SampleToolLambda", {
       runtime: lambda.Runtime.PYTHON_3_13,
@@ -785,11 +597,8 @@ export class BackendStack extends cdk.NestedStack {
 
     // Ensure gateway is created after all dependencies
     gateway.node.addDependency(toolLambda)
-    gateway.node.addDependency(this.userPool)
-    gateway.node.addDependency(this.userPoolClient)
+    gateway.node.addDependency(this.machineClient)
     gateway.node.addDependency(gatewayRole)
-    // CRITICAL: Gateway must wait for Runtime to complete
-    gateway.node.addDependency(this.agentRuntime)
 
     // Output gateway information
     new cdk.CfnOutput(this, 'GatewayId', {

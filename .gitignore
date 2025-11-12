@@ -25,4 +25,7 @@ notebooks/examples/data
 **/cdk.out
 **/.envrc
 **/node_modules
+**/.next
+**/next-env.d.ts
+frontend/public/aws-exports.json
 .venv

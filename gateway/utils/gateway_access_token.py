@@ -25,7 +25,7 @@ def get_ssm_parameter(parameter_name: str) -> str:
     return response["Parameter"]["Value"]
 
 
-async def get_gateway_access_token() -> str:
+def get_gateway_access_token() -> str:
     """
     Get OAuth2 access token using client credentials flow.
 

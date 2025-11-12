@@ -24,36 +24,43 @@ GASP comes deployable out-of-the-box with a fully functioning application. This 
 
 ### Architecture
 
+**ARCHITECTURE DIAGRAM NEEDS UPDATING WITH AMPLIFY HOSTING.**
+
 ![Architecture Diagram](docs/img/GASP-architecture-20251029.png)
-The out-of-the-box architecture is shown above. 
+The out-of-the-box architecture is shown above.
 
 ### Tech Stack
 
-- **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
+- **Frontend**: React with Next.js, TypeScript, Tailwind CSS, and shadcn components - infinitely flexible and ready for coding assistants
 - **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
 - **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
-- **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
+- **Infrastructure**: CDK deployment with Amplify Hosting for frontent and AgentCore backend
 - **Styling**: Dark/Light theme support
 
 ### Features
 
 #### Authentication
+
 - Cognito User Pool with email/username sign-in
 - OAuth support with authorization code flow
 - Secure password policy
 - Email verification
 
 #### Frontend
-- Cloudscape Design System components
+
+- Modern React with Next.js and shadcn components
 - Dark/Light theme toggle
-- Responsive design
-- SPA routing with React Router
+- Responsive design with Tailwind CSS
+- Flexible component system ready for customization
 
 #### Infrastructure
-- S3 static website hosting
-- CloudFront CDN with HTTPS
-- Origin Access Control (OAC) for security
-- Automatic deployment pipeline
+
+- Amplify Hosting for web app deployment
+  - Feature branches for production and staging environments
+  - Custom domains and built-in CDN with HTTPS
+  - Pull request previews and password protection
+- Automated frontend deployments via helper script
+- Secure authentication integration
 
 ## Deployment
 
@@ -63,19 +70,24 @@ The GASP system is deployed using AWS CDK. See the [deployment README](docs/DEPL
 
 ```
 genaiid-agentcore-starter-pack/
-├── frontend/                 # React frontend application
+├── frontend/                 # Next.js React frontend application
 │   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── pages/          # Page components
-│   │   ├── common/         # Utilities and constants
-│   │   └── styles/         # SCSS styles
-│   ├── public/             # Static assets
+│   │   ├── app/            # Next.js app router pages
+│   │   ├── components/     # React components (shadcn/ui)
+│   │   ├── config/         # Configuration files
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── lib/            # Utility libraries
+│   │   ├── services/       # API service layers
+│   │   └── types/          # TypeScript type definitions
+│   ├── public/             # Static assets and aws-exports.json
+│   ├── components.json     # shadcn/ui configuration
 │   └── package.json
 ├── infra-cdk/               # CDK infrastructure code
 │   ├── lib/                # CDK stack definitions
 │   │   └── utils/          # Utility functions
 │   ├── bin/                # CDK app entry point
-│   ├── config.yaml         # Configuration
+│   ├── lambdas/            # Lambda function code
+│   ├── config.yaml         # Deployment configuration
 │   ├── package.json
 │   └── tsconfig.json
 ├── patterns/               # Agent pattern implementations
@@ -83,12 +95,18 @@ genaiid-agentcore-starter-pack/
 │       ├── basic_agent.py  # Agent implementation
 │       ├── requirements.txt # Agent dependencies
 │       └── Dockerfile      # Container configuration
+├── scripts/                # Deployment and test scripts
+│   ├── deploy-frontend.sh  # Frontend deployment helper
+│   ├── post-deploy.py      # Configuration generation
+│   └── test-*.py          # Various test utilities
 ├── docs/                   # Documentation
+│   ├── DEPLOYMENT.md       # Deployment guide
+│   ├── AGENT_CONFIGURATION.md # Agent setup guide
+│   └── MEMORY_INTEGRATION.md # Memory integration guide
+├── tests/                  # Test suite
+├── vibe-context/           # AI coding assistant context
 └── README.md
 ```
-
-
-
 
 ## License
 
