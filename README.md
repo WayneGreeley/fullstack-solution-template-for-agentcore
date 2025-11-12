@@ -92,6 +92,12 @@ genaiid-agentcore-starter-pack/
 └── README.md
 ```
 
+## Security
+
+Note: this asset represents a proof-of-value for the services included and is not intended as a production-ready solution. You must determine how the AWS Shared Responsibility applies to their specific use case and implement the needed controls to achieve their desired security outcomes. AWS offers a broad set of security tools and configurations to enable our customers.
+
+Ultimately it is your responsibility as the developer of a full stack application to ensure all of its aspects are secure. We provide security best practices in repository documentation and provide a secure baseline but Amazon holds no responsibility for the security of applications built from this tool.
+
 ## License
 
 This project is licensed under the MIT-0 License.
