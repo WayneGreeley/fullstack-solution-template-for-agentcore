@@ -1,16 +1,22 @@
 [
   {
-    "name": "sample_tool",
-    "description": "A sample tool that returns a greeting",
+    "name": "text_analysis_tool",
+    "description": "A tool which analyzes an input block of text to count number of words and return the top N frequent characters.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "name": {
+        "text": {
           "type": "string",
-          "description": "Name to greet"
+          "description": "Input block of text to analyze"
+        },
+        "N": {
+          "type": "integer",
+          "description": "Tthe number of most frequent characters to return (optional, default = 5)"
         }
       },
-      "required": ["name"]
+      "required": [
+        "text"
+      ]
     }
   }
 ]

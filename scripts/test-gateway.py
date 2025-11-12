@@ -109,7 +109,7 @@ def main():
         'gateway_url',
         'machine_client_id',
         'machine_client_secret',
-        'cognito-domain'
+        'cognito_provider'
     )
     
     print_msg("Configuration fetched")
@@ -118,7 +118,7 @@ def main():
     gateway_url = gateway_params['gateway_url']
     client_id = gateway_params['machine_client_id']
     client_secret = gateway_params['machine_client_secret']
-    cognito_domain = gateway_params['cognito-domain']
+    cognito_domain = gateway_params['cognito_provider']
     token_url = f"https://{cognito_domain}/oauth2/token"
     
     print(f"Gateway URL: {gateway_url}")
@@ -140,11 +140,14 @@ def main():
     print("\nResponse:")
     print(json.dumps(tools, indent=2))
     
-    # Call the sample tool
+    # Call the text analysis tool
     print_section("Tool Call Test")
-    print("Calling sample tool with name 'foobar'...")
+    print("Calling text analysis tool...")
     
-    tool_result = call_tool(gateway_url, access_token, "GASPAgent___sample_tool", {"name": "foobar"})
+    tool_result = call_tool(gateway_url, access_token, "GASPAgent___text_analysis_tool", {
+        "text": "Hello world! This is a sample text for analysis. Hello again!",
+        "N": 3
+    })
     print_msg("Tool call successful")
     print("\nResponse:")
     print(json.dumps(tool_result, indent=2))

@@ -6,8 +6,9 @@ WORKDIR /app
 COPY pyproject.toml .
 COPY gateway/ gateway/
 
-# Install GASP package
-RUN pip install --no-cache-dir -e .
+# Install GASP package with only core dependencies (no dev/agent optional deps)
+RUN pip install --no-cache-dir -e . --no-deps && \
+    pip install --no-cache-dir boto3>=1.34.0 requests>=2.31.0
 
 # Install agent requirements
 COPY patterns/strands-single-agent/requirements.txt requirements.txt

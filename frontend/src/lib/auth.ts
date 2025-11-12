@@ -15,16 +15,15 @@ type AwsExportsConfig = {
 /**
  * Configuration Priority (highest to lowest):
  * 1. Environment variables (NEXT_PUBLIC_COGNITO_*)
- * 2. aws-config.json file
- * 3. aws-exports.json file (fallback)
- * 4. Default values
+ * 2. aws-exports.json file
+ * 3. Default values
  */
 
 // Cache for loaded config
 let configCache: AwsExportsConfig | null = null
 let configPromise: Promise<AwsExportsConfig | null> | null = null
 
-// Load configuration from aws-config.json or aws-exports.json at runtime
+// Load configuration from aws-exports.json at runtime
 async function loadAwsConfig(): Promise<AwsExportsConfig | null> {
   if (configCache) {
     return configCache
@@ -36,22 +35,16 @@ async function loadAwsConfig(): Promise<AwsExportsConfig | null> {
 
   configPromise = (async () => {
     try {
-      // Try aws-config.json first, then fall back to aws-exports.json
-      let response = await fetch("/aws-config.json")
+      const response = await fetch("/aws-exports.json")
       if (!response.ok) {
-        response = await fetch("/aws-exports.json")
-        if (!response.ok) {
-          throw new Error(`Failed to load config: ${response.status}`)
-        }
+        throw new Error(`Failed to load aws-exports.json: ${response.status}`)
       }
       const config = await response.json()
       configCache = config
       return config
-    } catch {
-      console.warn(
-        "aws-config.json and aws-exports.json not found, falling back to environment variables"
-      )
-      return null
+    } catch (error) {
+      console.error("Failed to load aws-exports.json:", error)
+      throw error
     }
   })()
 

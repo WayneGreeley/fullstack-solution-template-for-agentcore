@@ -47,71 +47,8 @@ export class BackendStack extends cdk.NestedStack {
     this.userPool = cognito.UserPool.fromUserPoolId(this, "ImportedUserPoolForBackend", props.userPoolId)
     this.userPoolClient = cognito.UserPoolClient.fromUserPoolClientId(this, "ImportedUserPoolClient", props.userPoolClientId)
 
-    // Create Resource Server for Machine-to-Machine (M2M) authentication
-    // This defines the API scopes that machine clients can request access to
-    const resourceServer = new cognito.UserPoolResourceServer(this, "ResourceServer", {
-      userPool: this.userPool,
-      identifier: `${props.config.stack_name_base}-gateway`,
-      userPoolResourceServerName: `${props.config.stack_name_base}-gateway-resource-server`,
-      scopes: [
-        new cognito.ResourceServerScope({
-          scopeName: "read",
-          scopeDescription: "Read access to gateway",
-        }),
-        new cognito.ResourceServerScope({
-          scopeName: "write",
-          scopeDescription: "Write access to gateway",
-        }),
-      ],
-    })
-
-    // Create Machine Client for AgentCore Gateway authentication
-    // 
-    // WHAT IS A MACHINE CLIENT?
-    // A machine client is a Cognito User Pool Client configured for server-to-server authentication
-    // using the OAuth2 Client Credentials flow. Unlike user-facing clients, it doesn't require
-    // human interaction or user credentials.
-    //
-    // HOW IS IT DIFFERENT FROM THE REGULAR USER POOL CLIENT?
-    // - Regular client: Uses Authorization Code flow for human users (frontend login)
-    // - Machine client: Uses Client Credentials flow for service-to-service authentication
-    // - Regular client: No client secret (public client for frontend security)
-    // - Machine client: Has client secret (confidential client for backend security)
-    // - Regular client: Scopes are openid, email, profile (user identity)
-    // - Machine client: Scopes are custom resource server scopes (API permissions)
-    //
-    // WHY IS IT NEEDED?
-    // The AgentCore Gateway needs to authenticate with Cognito to validate tokens and make
-    // API calls on behalf of the system. The machine client provides the credentials for
-    // this service-to-service authentication without requiring user interaction.
-    this.machineClient = new cognito.UserPoolClient(this, "MachineClient", {
-      userPool: this.userPool,
-      userPoolClientName: `${props.config.stack_name_base}-machine-client`,
-      generateSecret: true, // Required for client credentials flow
-      oAuth: {
-        flows: {
-          clientCredentials: true, // Enable OAuth2 Client Credentials flow
-        },
-        scopes: [
-          // Grant access to the resource server scopes defined above
-          cognito.OAuthScope.resourceServer(resourceServer, 
-            new cognito.ResourceServerScope({
-              scopeName: "read",
-              scopeDescription: "Read access to gateway",
-            })
-          ),
-          cognito.OAuthScope.resourceServer(resourceServer,
-            new cognito.ResourceServerScope({
-              scopeName: "write",
-              scopeDescription: "Write access to gateway",
-            })
-          ),
-        ],
-      },
-    })
-
-    // Machine client must be created after resource server
-    this.machineClient.node.addDependency(resourceServer)
+    // Create Machine-to-Machine authentication components
+    this.createMachineAuthentication(props.config)
 
     // DEPLOYMENT ORDER EXPLANATION:
     // 1. Cognito User Pool & Client (created in separate CognitoStack)
@@ -138,7 +75,7 @@ export class BackendStack extends cdk.NestedStack {
     // Create Feedback DynamoDB table (example of application data storage)
     const feedbackTable = this.createFeedbackTable(props.config)
 
-    // Create Feedback API resources (example of best-practice API Gateway + Lambda pattern)
+    // Create API Gateway Feedback API resources (example of best-practice API Gateway + Lambda pattern)
     this.createFeedbackApi(props.config, feedbackTable)
   }
 
@@ -351,31 +288,33 @@ export class BackendStack extends cdk.NestedStack {
     return feedbackTable
   }
 
-  /**
-   * Creates an API Gateway with Lambda integration for the feedback endpoint.
-   * This is an EXAMPLE implementation demonstrating best practices for API Gateway + Lambda.
-   *
-   * API Contract - POST /feedback
-   * Authorization: Bearer <cognito-access-token> (required)
-   *
-   * Request Body:
-   *   sessionId: string (required, max 100 chars, alphanumeric with -_) - Conversation session ID
-   *   message: string (required, max 5000 chars) - Agent's response being rated
-   *   feedbackType: "positive" | "negative" (required) - User's rating
-   *   comment: string (optional, max 5000 chars) - User's explanation for rating
-   *
-   * Success Response (200):
-   *   { success: true, feedbackId: string }
-   *
-   * Error Responses:
-   *   400: { error: string } - Validation failure (missing fields, invalid format)
-   *   401: { error: "Unauthorized" } - Invalid/missing JWT token
-   *   500: { error: "Internal server error" } - DynamoDB or processing error
-   *
-   * Implementation: infra-cdk/lambdas/feedback/index.py
-   */
+  
 
   private createFeedbackApi(config: AppConfig, feedbackTable: dynamodb.Table): void {
+    /**
+     * Creates an API Gateway with Lambda integration for the feedback endpoint.
+     * This is an EXAMPLE implementation demonstrating best practices for API Gateway + Lambda.
+     *
+     * API Contract - POST /feedback
+     * Authorization: Bearer <cognito-access-token> (required)
+     *
+     * Request Body:
+     *   sessionId: string (required, max 100 chars, alphanumeric with -_) - Conversation session ID
+     *   message: string (required, max 5000 chars) - Agent's response being rated
+     *   feedbackType: "positive" | "negative" (required) - User's rating
+     *   comment: string (optional, max 5000 chars) - User's explanation for rating
+     *
+     * Success Response (200):
+     *   { success: true, feedbackId: string }
+     *
+     * Error Responses:
+     *   400: { error: string } - Validation failure (missing fields, invalid format)
+     *   401: { error: "Unauthorized" } - Invalid/missing JWT token
+     *   500: { error: "Internal server error" } - DynamoDB or processing error
+     *
+     * Implementation: infra-cdk/lambdas/feedback/index.py
+     */
+
     // Create Lambda function for feedback using Python
     const feedbackLambda = new PythonFunction(this, "FeedbackLambda", {
       functionName: `${config.stack_name_base}-feedback`,
@@ -448,7 +387,8 @@ export class BackendStack extends cdk.NestedStack {
       value: api.url,
     })
   }
-private createAgentCoreGateway(config: AppConfig): void {
+
+  private createAgentCoreGateway(config: AppConfig): void {
     // Create sample tool Lambda
     const toolLambda = new lambda.Function(this, "SampleToolLambda", {
       runtime: lambda.Runtime.PYTHON_3_13,
@@ -635,5 +575,73 @@ private createAgentCoreGateway(config: AppConfig): void {
       description: "ARN of the sample tool Lambda",
       value: toolLambda.functionArn,
     })
+  }
+
+  private createMachineAuthentication(config: AppConfig): void {
+    // Create Resource Server for Machine-to-Machine (M2M) authentication
+    // This defines the API scopes that machine clients can request access to
+    const resourceServer = new cognito.UserPoolResourceServer(this, "ResourceServer", {
+      userPool: this.userPool,
+      identifier: `${config.stack_name_base}-gateway`,
+      userPoolResourceServerName: `${config.stack_name_base}-gateway-resource-server`,
+      scopes: [
+        new cognito.ResourceServerScope({
+          scopeName: "read",
+          scopeDescription: "Read access to gateway",
+        }),
+        new cognito.ResourceServerScope({
+          scopeName: "write",
+          scopeDescription: "Write access to gateway",
+        }),
+      ],
+    })
+
+    // Create Machine Client for AgentCore Gateway authentication
+    // 
+    // WHAT IS A MACHINE CLIENT?
+    // A machine client is a Cognito User Pool Client configured for server-to-server authentication
+    // using the OAuth2 Client Credentials flow. Unlike user-facing clients, it doesn't require
+    // human interaction or user credentials.
+    //
+    // HOW IS IT DIFFERENT FROM THE REGULAR USER POOL CLIENT?
+    // - Regular client: Uses Authorization Code flow for human users (frontend login)
+    // - Machine client: Uses Client Credentials flow for service-to-service authentication
+    // - Regular client: No client secret (public client for frontend security)
+    // - Machine client: Has client secret (confidential client for backend security)
+    // - Regular client: Scopes are openid, email, profile (user identity)
+    // - Machine client: Scopes are custom resource server scopes (API permissions)
+    //
+    // WHY IS IT NEEDED?
+    // The AgentCore Gateway needs to authenticate with Cognito to validate tokens and make
+    // API calls on behalf of the system. The machine client provides the credentials for
+    // this service-to-service authentication without requiring user interaction.
+    this.machineClient = new cognito.UserPoolClient(this, "MachineClient", {
+      userPool: this.userPool,
+      userPoolClientName: `${config.stack_name_base}-machine-client`,
+      generateSecret: true, // Required for client credentials flow
+      oAuth: {
+        flows: {
+          clientCredentials: true, // Enable OAuth2 Client Credentials flow
+        },
+        scopes: [
+          // Grant access to the resource server scopes defined above
+          cognito.OAuthScope.resourceServer(resourceServer, 
+            new cognito.ResourceServerScope({
+              scopeName: "read",
+              scopeDescription: "Read access to gateway",
+            })
+          ),
+          cognito.OAuthScope.resourceServer(resourceServer,
+            new cognito.ResourceServerScope({
+              scopeName: "write",
+              scopeDescription: "Write access to gateway",
+            })
+          ),
+        ],
+      },
+    })
+
+    // Machine client must be created after resource server
+    this.machineClient.node.addDependency(resourceServer)
   }
 }

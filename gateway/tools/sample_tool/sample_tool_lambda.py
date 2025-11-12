@@ -1,13 +1,45 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 import json
 import logging
+from collections import Counter
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+def analyze_text(text: str, n: int = 5) -> str:
+    """
+    Analyzes text to count words and find most frequent characters.
+
+    Args:
+        text: Input text to analyze
+        n: Number of most frequent characters to return
+
+    Returns:
+        Formatted analysis results as string
+    """
+    # Count words
+    word_count = len(text.split())
+
+    # Count character frequency (excluding spaces)
+    char_counter = Counter(char.lower() for char in text if char != " ")
+    top_chars = char_counter.most_common(n)
+
+    # Format results
+    result = "Text analysis results:\n"
+    result += f"Word count: {word_count}\n"
+    result += f"Top {n} most frequent characters:\n"
+    for char, count in top_chars:
+        result += f"  '{char}': {count}\n"
+
+    return result
+
+
 def handler(event, context):
     """
-    Sample tool Lambda function for GASP AgentCore Gateway.
+    Text analysis tool Lambda function for GASP AgentCore Gateway.
 
     DESIGN PATTERN:
     This Lambda follows the "one tool per Lambda" design pattern, where each Lambda function
@@ -18,11 +50,6 @@ def handler(event, context):
     - Independent deployment cycles
     - Tool-specific IAM permissions
 
-    ALTERNATIVE PATTERN:
-    You could implement multiple tools in a single Lambda by checking the tool name
-    and routing to different handlers. However, this is NOT recommended for production
-    because it creates coupling and reduces the benefits of serverless architecture.
-
     INPUT FORMAT:
     - event: Contains tool arguments directly (not wrapped in HTTP body)
     - context.client_context.custom['bedrockAgentCoreToolName']: Full tool name with target prefix
@@ -30,11 +57,6 @@ def handler(event, context):
     OUTPUT FORMAT:
     - Return object with 'content' array containing response data
     - No HTTP status codes or headers needed (gateway handles HTTP layer)
-
-    TOOL NAME HANDLING:
-    - Gateway sends tool name as "TargetName___ToolName" (e.g., "GASPAgent___sample_tool")
-    - Lambda strips the target prefix to get the actual tool name
-    - This allows multiple targets to have tools with the same name
 
     Args:
         event (dict): Tool arguments passed directly from gateway
@@ -55,18 +77,21 @@ def handler(event, context):
 
         logger.info(f"Processing tool: {tool_name}")
 
-        # This Lambda implements exactly one tool: sample_tool
-        if tool_name == "sample_tool":
-            # Event contains the arguments directly (no parsing needed)
-            name = event.get("name", "World")
-            result = f"Hello, {name}! This is a sample tool from GASP."
+        # This Lambda implements exactly one tool: text_analysis_tool
+        if tool_name == "text_analysis_tool":
+            # Get arguments from event
+            text = event.get("text", "")
+            N = event.get("N", 5)
+
+            # Analyze text
+            result = analyze_text(text, N)
 
             return {"content": [{"type": "text", "text": result}]}
         else:
             # This should never happen if gateway is configured correctly
             logger.error(f"Unexpected tool name: {tool_name}")
             return {
-                "error": f"This Lambda only supports 'sample_tool', received: {tool_name}"
+                "error": f"This Lambda only supports 'text_analysis_tool', received: {tool_name}"
             }
 
     except Exception as e:
