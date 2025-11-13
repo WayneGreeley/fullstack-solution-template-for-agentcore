@@ -110,7 +110,8 @@ def start_local_agent(memory_id: str, region: str) -> subprocess.Popen:
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            shell=False  # Explicitly disable shell
         )
         
         # Wait for agent to start (check port becomes available)

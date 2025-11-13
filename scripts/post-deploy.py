@@ -2,7 +2,7 @@
 
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 - subprocess used securely with explicit parameters
 import sys
 from pathlib import Path
 
