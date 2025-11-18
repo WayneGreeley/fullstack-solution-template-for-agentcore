@@ -17,7 +17,7 @@ export class GaspMainStack extends cdk.Stack {
   public readonly cognitoStack: CognitoStack
 
   constructor(scope: Construct, id: string, props: GaspAmplifyStackProps) {
-    const description = "GenAIIC AgentCore Starter Pack - Main Stack (v0.0.1) m(uksb-v6dos0t5g8)"
+    const description = "GenAIID AgentCore Starter Pack - Main Stack (v0.1.0) m(uksb-v6dos0t5g8)"
     super(scope, id, { ...props, description })
 
     // Step 1: Create the Amplify stack to get the predictable domain

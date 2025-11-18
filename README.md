@@ -38,7 +38,12 @@ What comes next? That's up to you, the developer. With your requirements in mind
 ## Architecture
 
 ![Architecture Diagram](docs/architecture-diagram/GASP-architecture-20251113.png)
-The out-of-the-box architecture is shown above.
+
+The out-of-the-box architecture is shown above. Note that Amazon Cognito is used in four places:
+1. User-based login to the frontend web application on CloudFront
+2. Token-based authentication for the frontend to access AgentCore Runtime
+3. Token-based authentication for the agents in AgentCore Runtime to access AgentCore Gateway
+4. Token-based authentication when making API requests to API Gateway.
 
 ### Tech Stack
 
