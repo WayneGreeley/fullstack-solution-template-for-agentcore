@@ -4,6 +4,7 @@ import json
 import os
 import subprocess  # nosec B404 - subprocess used securely with explicit parameters
 import sys
+import yaml
 from pathlib import Path
 
 def main():
@@ -66,6 +67,19 @@ def generate_aws_exports(stack_name):
         if missing:
             raise Exception(f"Missing required stack outputs: {', '.join(missing)}")
 
+        # Read agent pattern from config.yaml
+        script_dir = Path(__file__).parent
+        config_path = script_dir.parent / "infra-cdk" / "config.yaml"
+        agent_pattern = "strands-single-agent"  # Default fallback
+        
+        try:
+            with open(config_path, 'r') as config_file:
+                config_data = yaml.safe_load(config_file)
+                agent_pattern = config_data.get('backend', {}).get('pattern', agent_pattern)
+                print(f"📦 Using agent pattern: {agent_pattern}")
+        except Exception as error:
+            print(f"⚠️  Warning: Could not read config.yaml, using default pattern: {error}")
+
         # Generate aws-exports.json content with correct Cognito IDP authority
         aws_exports = {
             "authority": f"https://cognito-idp.{region}.amazonaws.com/{output_map['CognitoUserPoolId']}",
@@ -78,6 +92,7 @@ def generate_aws_exports(stack_name):
             "agentRuntimeArn": output_map['RuntimeArn'],
             "awsRegion": region,
             "feedbackApiUrl": output_map['FeedbackApiUrl'],
+            "agentPattern": agent_pattern,
         }
 
         # Write to frontend/public directory
@@ -99,6 +114,7 @@ def generate_aws_exports(stack_name):
         print(f"   Client ID: {aws_exports['client_id']}")
         print(f"   Redirect URI: {aws_exports['redirect_uri']}")
         print(f"   Feedback API URL: {aws_exports['feedbackApiUrl']}")
+        print(f"   Agent Pattern: {aws_exports['agentPattern']}")
 
     except subprocess.CalledProcessError as error:
         raise Exception(f"AWS CLI command failed: {error}")

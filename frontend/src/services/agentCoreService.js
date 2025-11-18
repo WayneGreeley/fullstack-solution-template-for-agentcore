@@ -7,14 +7,10 @@
  * Handles streaming responses from AgentCore agents using Server-Sent Events (SSE).
  *
  * CUSTOMIZATION FOR OTHER AGENT TYPES:
- * This service uses separate parser files for Strands and LangGraph agents.
- * Both parsers try each streaming event, each processes its format and ignores others.
- * To support other agent frameworks, create a new parser file and add a call in the streaming loop.
- * See strandsParser.js and langgraphParser.js for examples.
+ * This service dynamically loads the appropriate parser based on the agent pattern.
+ * The parser processes each streaming event. See strandsParser.js and langgraphParser.js for examples.
+ * To support other agent frameworks, create a new parser file and update config.yaml.
  */
-
-import * as strandsParser from './strandsParser.js';
-import * as langgraphParser from './langgraphParser.js';
 
 // Generate a UUID
 const generateId = () => {
@@ -27,10 +23,18 @@ const AGENT_CONFIG = {
   AWS_REGION: "us-east-1",
 }
 
+let currentParser = null;
+
 // Set configuration from environment or aws-exports
-export const setAgentConfig = (runtimeArn, region = "us-east-1") => {
+export const setAgentConfig = async (runtimeArn, region = "us-east-1", agentPattern = "strands-single-agent") => {
   AGENT_CONFIG.AGENT_RUNTIME_ARN = runtimeArn
   AGENT_CONFIG.AWS_REGION = region
+  
+  if (agentPattern === 'langgraph-single-agent') {
+    currentParser = await import('./langgraphParser.js');
+  } else {
+    currentParser = await import('./strandsParser.js');
+  }
 }
 
 /**
@@ -111,11 +115,7 @@ export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessTo
 
           for (const line of lines) {
             if (line.trim()) {
-              // Both parsers try each event, each processes its format and ignores others
-              // No overlap between formats, so both can safely run
-              // Suggestion: Keep only the parser for your agent type to reduce unnecessary processing
-              completion = strandsParser.parseStreamingChunk(line, completion, onStreamUpdate);
-              completion = langgraphParser.parseStreamingChunk(line, completion, onStreamUpdate);
+              completion = currentParser.parseStreamingChunk(line, completion, onStreamUpdate);
             }
           }
         }

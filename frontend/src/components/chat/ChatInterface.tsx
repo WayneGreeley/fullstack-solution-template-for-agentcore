@@ -38,7 +38,7 @@ export default function ChatInterface() {
           throw new Error("Agent Runtime ARN not found in configuration")
         }
 
-        setAgentConfig(config.agentRuntimeArn, config.awsRegion || "us-east-1")
+        await setAgentConfig(config.agentRuntimeArn, config.awsRegion || "us-east-1", config.agentPattern)
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error"
         setError(`Configuration error: ${errorMessage}`)
