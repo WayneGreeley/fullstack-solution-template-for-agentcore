@@ -29,8 +29,9 @@ USER bedrock_agentcore
 
 EXPOSE 8080
 
-# Copy only the agent code
+# Copy agent code files
 COPY patterns/strands-single-agent/basic_agent.py .
+COPY patterns/strands-single-agent/code_interpreter_tools.py .
 
 # Healthcheck using Python (no extra dependencies needed)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

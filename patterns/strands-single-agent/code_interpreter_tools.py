@@ -1,6 +1,8 @@
+"""Code interpreter tools for agent."""
+
 import json
 import logging
-from bedrock_agentcore.tools.code_interpreter_client import CodeInterpreter
+import boto3
 from strands import tool
 
 logger = logging.getLogger(__name__)
@@ -9,13 +11,23 @@ logger = logging.getLogger(__name__)
 class CodeInterpreterTools:
     """Tools for code execution via AgentCore Code Interpreter."""
 
-    def __init__(self, region: str):
+    def __init__(self, session: boto3.Session, region: str):
+        """
+        Initialize the code interpreter tools.
+
+        Args:
+            session: Boto3 session for AWS operations
+            region: AWS region for code interpreter
+        """
+        self.session = session
         self.region = region
         self._code_client = None
 
-    def _get_client(self):
+    def _get_code_interpreter_client(self):
         """Get or create code interpreter client."""
         if self._code_client is None:
+            from bedrock_agentcore.tools.code_interpreter_client import CodeInterpreter
+            
             self._code_client = CodeInterpreter(self.region)
             self._code_client.start()
             logger.info(f"Started code interpreter in {self.region}")
@@ -42,9 +54,7 @@ class CodeInterpreterTools:
         if description:
             code = f"# {description}\n{code}"
 
-        logger.debug(f"Executing: {description or 'code'}")
-
-        client = self._get_client()
+        client = self._get_code_interpreter_client()
         response = client.invoke("executeCode", {
             "code": code,
             "language": "python",
