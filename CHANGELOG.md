@@ -5,6 +5,27 @@ All notable changes to the GenAIID AgentCore Starter Pack (GASP) will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-12-05
+
+### Added
+- AgentCore Code Interpreter direct integration with comprehensive documentation
+- Reusable Code Interpreter tools for cross-pattern compatibility
+- Updated architecture diagrams to include Code Interpreter integration
+
+### Changed
+- Restructured Code Interpreter implementation for better reusability across agent patterns
+- Streamlined documentation and updated README for improved clarity
+- Removed unused description parameter from execute_python function
+
+### Security
+- **CRITICAL**: Updated React to 19.2.1 and Next.js to 16.0.7 to address CVE-2025-55182 (CVSS 10.0)
+- Fixed React Server Components remote code execution vulnerability
+
+### Fixed
+- AgentCore Code Interpreter deployment issues
+- Linting issues in Code Interpreter files
+- Various code review feedback items
+
 ## [0.1.1] - 2025-11-26
 
 ### Added
