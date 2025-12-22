@@ -5,7 +5,7 @@
 # automatic navigation generation from directory structure.
 
 # Declare phony targets (targets that don't represent files)
-.PHONY: install docs build deploy clean
+.PHONY: install docs build deploy clean gitlab-pages
 
 # install: Install all documentation dependencies
 # 
@@ -71,3 +71,12 @@ deploy:
 # Usage: make clean
 clean:
 	rm -rf site/
+
+# gitlab-pages: Build site for GitLab Pages deployment
+#
+# Builds the static site to the public/ directory as required by GitLab Pages.
+# This is used by the CI/CD pipeline (.gitlab-ci.yml) to deploy documentation.
+#
+# Usage: make gitlab-pages
+gitlab-pages:
+	mkdocs build --site-dir public

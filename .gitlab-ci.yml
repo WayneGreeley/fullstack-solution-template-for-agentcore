@@ -16,6 +16,7 @@ image: public.ecr.aws/docker/library/python:3.13-bookworm
 stages:
   - developer_tests
   - test # Need this name specifically for ASH scanning
+  - deploy
 
 developer_tests:
   stage: developer_tests
@@ -34,3 +35,19 @@ developer_tests:
 # Override ASH job to depend on developer_tests passing
 ash-sast:
   needs: ["developer_tests"]
+
+pages:
+  stage: deploy
+  image: public.ecr.aws/docker/library/python:3.13-bookworm
+  rules:
+    - when: always  # Deploy on all commits
+  before_script:
+    - pip install -r docs/requirements.txt
+  script:
+    - cd docs
+    - mkdocs build --site-dir ../public
+  artifacts:
+    paths:
+      - public
+  only:
+    - branches
