@@ -34,16 +34,25 @@ export class AgentCoreRole extends iam.Role {
               resources: ["*"],
             }),
             new iam.PolicyStatement({
+              sid: "CloudWatchLogsGroupAccess",
               effect: iam.Effect.ALLOW,
-              actions: [
-                "logs:DescribeLogStreams",
-                "logs:CreateLogGroup",
-                "logs:DescribeLogGroups",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-              ],
+              actions: ["logs:DescribeLogStreams", "logs:CreateLogGroup"],
               resources: [
                 `arn:aws:logs:${region}:${accountId}:log-group:/aws/bedrock-agentcore/runtimes/*`,
+              ],
+            }),
+            new iam.PolicyStatement({
+              sid: "CloudWatchLogsDescribeGroups",
+              effect: iam.Effect.ALLOW,
+              actions: ["logs:DescribeLogGroups"],
+              resources: [`arn:aws:logs:${region}:${accountId}:log-group:*`],
+            }),
+            new iam.PolicyStatement({
+              sid: "CloudWatchLogsStreamAccess",
+              effect: iam.Effect.ALLOW,
+              actions: ["logs:CreateLogStream", "logs:PutLogEvents"],
+              resources: [
+                `arn:aws:logs:${region}:${accountId}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*`,
               ],
             }),
             new iam.PolicyStatement({
