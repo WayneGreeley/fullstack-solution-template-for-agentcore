@@ -1,4 +1,4 @@
 nav:
   - Getting Started:
-    - README.md
-    - "*"
+    - docs/README.md
+    - "docs/*"
