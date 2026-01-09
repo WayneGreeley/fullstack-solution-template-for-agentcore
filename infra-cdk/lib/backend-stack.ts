@@ -6,15 +6,18 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager"
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb"
 import * as apigateway from "aws-cdk-lib/aws-apigateway"
 import * as logs from "aws-cdk-lib/aws-logs"
+import * as s3 from "aws-cdk-lib/aws-s3"
 import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha"
 import * as bedrockagentcore from "aws-cdk-lib/aws-bedrockagentcore"
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha"
 import * as lambda from "aws-cdk-lib/aws-lambda"
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"
+import * as cr from "aws-cdk-lib/custom-resources"
 import { Construct } from "constructs"
 import { AppConfig } from "./utils/config-manager"
 import { AgentCoreRole } from "./utils/agentcore-role"
 import * as path from "path"
+import * as fs from "fs"
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   config: AppConfig
@@ -109,19 +112,108 @@ export class BackendStack extends cdk.NestedStack {
     })
 
     const stack = cdk.Stack.of(this)
+    const deploymentType = config.backend.deployment_type
 
-    // Create the agent runtime artifact from local Docker context with ARM64 platform
-    //
-    // DOCKER BUILD CONTEXT STRATEGY:
-    // Use repository root as build context to install FAST package, but with optimized
-    // Dockerfile that installs the package and only copies necessary agent files.
-    const agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(
-      path.resolve(__dirname, "..", ".."),
-      {
-        platform: ecr_assets.Platform.LINUX_ARM64,
-        file: `patterns/${pattern}/Dockerfile`,
+    // Create the agent runtime artifact based on deployment type
+    let agentRuntimeArtifact: agentcore.AgentRuntimeArtifact
+    let zipPackagerResource: cdk.CustomResource | undefined
+
+    if (deploymentType === "zip") {
+      // ZIP DEPLOYMENT: Use Lambda to package and upload to S3 (no Docker required)
+      const repoRoot = path.resolve(__dirname, "..", "..")
+      const patternDir = path.join(repoRoot, "patterns", pattern)
+
+      // Create S3 bucket for agent code
+      const agentCodeBucket = new s3.Bucket(this, "AgentCodeBucket", {
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        autoDeleteObjects: true,
+        versioned: true,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      })
+
+      // Lambda to package agent code
+      const packagerLambda = new lambda.Function(this, "ZipPackagerLambda", {
+        runtime: lambda.Runtime.PYTHON_3_12,
+        handler: "index.handler",
+        code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambdas", "zip-packager")),
+        timeout: cdk.Duration.minutes(10),
+        memorySize: 1024,
+        ephemeralStorageSize: cdk.Size.gibibytes(2),
+      })
+
+      agentCodeBucket.grantReadWrite(packagerLambda)
+
+      // Read agent code files and encode as base64
+      const agentCode: Record<string, string> = {}
+      
+      // Read pattern .py files
+      for (const file of fs.readdirSync(patternDir)) {
+        if (file.endsWith(".py")) {
+          const content = fs.readFileSync(path.join(patternDir, file))
+          agentCode[file] = content.toString("base64")
+        }
       }
-    )
+
+      // Read shared modules (gateway/, tools/)
+      for (const module of ["gateway", "tools"]) {
+        const moduleDir = path.join(repoRoot, module)
+        if (fs.existsSync(moduleDir)) {
+          this.readDirRecursive(moduleDir, module, agentCode)
+        }
+      }
+
+      // Read requirements
+      const requirementsPath = path.join(patternDir, "requirements.txt")
+      const requirements = fs.readFileSync(requirementsPath, "utf-8")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith("#"))
+
+      // Create hash for change detection
+      // We use this to trigger update when content changes
+      const contentHash = this.hashContent(JSON.stringify({ requirements, agentCode }))
+
+      // Custom Resource to trigger packaging
+      const provider = new cr.Provider(this, "ZipPackagerProvider", {
+        onEventHandler: packagerLambda,
+      })
+
+      zipPackagerResource = new cdk.CustomResource(this, "ZipPackager", {
+        serviceToken: provider.serviceToken,
+        properties: {
+          BucketName: agentCodeBucket.bucketName,
+          ObjectKey: "deployment_package.zip",
+          Requirements: requirements,
+          AgentCode: agentCode,
+          ContentHash: contentHash,
+        },
+      })
+
+      // Store bucket name in SSM for updates
+      new ssm.StringParameter(this, "AgentCodeBucketNameParam", {
+        parameterName: `/${config.stack_name_base}/agent-code-bucket`,
+        stringValue: agentCodeBucket.bucketName,
+        description: "S3 bucket for agent code deployment packages",
+      })
+
+      agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromS3(
+        {
+          bucketName: agentCodeBucket.bucketName,
+          objectKey: "deployment_package.zip",
+        },
+        agentcore.AgentCoreRuntime.PYTHON_3_12,
+        ["opentelemetry-instrument", "basic_agent.py"]
+      )
+    } else {
+      // DOCKER DEPLOYMENT: Use container-based deployment
+      agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(
+        path.resolve(__dirname, "..", ".."),
+        {
+          platform: ecr_assets.Platform.LINUX_ARM64,
+          file: `patterns/${pattern}/Dockerfile`,
+        }
+      )
+    }
 
     // Configure network mode
     const networkConfiguration =
@@ -220,6 +312,11 @@ export class BackendStack extends cdk.NestedStack {
       authorizerConfiguration: authorizerConfiguration,
       description: `${pattern} agent runtime for ${config.stack_name_base}`,
     })
+
+    // Make sure that ZIP is uploaded before Runtime is created
+    if (zipPackagerResource) {
+      this.agentRuntime.node.addDependency(zipPackagerResource)
+    }
 
     // Store the runtime ARN
     this.runtimeArn = this.agentRuntime.agentRuntimeArn
@@ -679,5 +776,40 @@ export class BackendStack extends cdk.NestedStack {
 
     // Machine client must be created after resource server
     this.machineClient.node.addDependency(resourceServer)
+  }
+
+  /**
+   * Recursively read directory contents and encode as base64.
+   *
+   * @param dirPath - Directory to read.
+   * @param prefix - Prefix for file paths in output.
+   * @param output - Output object to populate.
+   */
+  private readDirRecursive(dirPath: string, prefix: string, output: Record<string, string>): void {
+    for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+      const fullPath = path.join(dirPath, entry.name)
+      const relativePath = path.join(prefix, entry.name)
+
+      if (entry.isDirectory()) {
+        // Skip __pycache__ directories
+        if (entry.name !== "__pycache__") {
+          this.readDirRecursive(fullPath, relativePath, output)
+        }
+      } else if (entry.isFile()) {
+        const content = fs.readFileSync(fullPath)
+        output[relativePath] = content.toString("base64")
+      }
+    }
+  }
+
+  /**
+   * Create a hash of content for change detection.
+   *
+   * @param content - Content to hash.
+   * @returns Hash string.
+   */
+  private hashContent(content: string): string {
+    const crypto = require("crypto")
+    return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16)
   }
 }

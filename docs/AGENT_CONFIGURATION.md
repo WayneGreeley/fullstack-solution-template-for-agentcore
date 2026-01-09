@@ -22,7 +22,7 @@ A basic conversational agent using the Strands framework with AgentCore Memory i
 **Key Configuration Files**:
 - **Agent Logic**: `patterns/strands-single-agent/basic_agent.py` - Main agent implementation with memory integration, model configuration, and streaming logic
 - **Python Dependencies**: `patterns/strands-single-agent/requirements.txt` - Required Python packages (Strands, bedrock-agentcore, etc.)
-- **Container Config**: `patterns/strands-single-agent/Dockerfile` - Docker container definition for AgentCore Runtime deployment
+- **Container Config**: `patterns/strands-single-agent/Dockerfile` - Docker container definition (only used for `deployment_type: docker`)
 - **Infrastructure**: `infra-cdk/lib/backend-stack.ts` - CDK configuration for memory resource and runtime deployment
 
 **Model Configuration** (`patterns/strands-single-agent/basic_agent.py`):
@@ -59,7 +59,7 @@ A conversational agent using LangGraph with AgentCore Memory and Gateway integra
 **Key Configuration Files**:
 - **Agent Logic**: `patterns/langgraph-single-agent/langgraph_agent.py` - Main agent implementation with memory, Gateway tools, and streaming
 - **Python Dependencies**: `patterns/langgraph-single-agent/requirements.txt` - Required Python packages (LangGraph, langchain-aws, etc.)
-- **Container Config**: `patterns/langgraph-single-agent/Dockerfile` - Docker container definition for AgentCore Runtime deployment
+- **Container Config**: `patterns/langgraph-single-agent/Dockerfile` - Docker container definition (only used for `deployment_type: docker`)
 - **Infrastructure**: `infra-cdk/lib/backend-stack.ts` - CDK configuration for memory resource and runtime deployment
 
 **Model Configuration** (`patterns/langgraph-single-agent/langgraph_agent.py`):
@@ -134,7 +134,9 @@ if __name__ == "__main__":
     app.run()
 ```
 
-### Step 3: Create Dockerfile
+### Step 3: Create Dockerfile (for Docker deployment only)
+
+If using `deployment_type: docker` in your config, create a Dockerfile:
 
 ```dockerfile
 FROM public.ecr.aws/docker/library/python:3.13-slim
@@ -150,6 +152,8 @@ EXPOSE 8080
 
 CMD ["python", "your_agent.py"]
 ```
+
+**For ZIP deployment**: No Dockerfile is needed. The ZIP packager automatically bundles your `patterns/<pattern>/` directory along with `gateway/` and `tools/` directories, plus dependencies from `requirements.txt`.
 
 ### Step 4: Update CDK Configuration
 

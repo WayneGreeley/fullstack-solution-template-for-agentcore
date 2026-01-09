@@ -10,7 +10,7 @@ Before deploying, ensure you have:
 - **AWS CLI** configured with credentials (`aws configure`) - see [AWS CLI Configuration guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
 - **AWS CDK CLI** installed: `npm install -g aws-cdk` (see [CDK Getting Started guide](https://docs.aws.amazon.com/cdk/v2/guide/getting-started.html))
 - **Python 3.11 or above+** (standard library only - no virtual environment needed for deployment)
-- **Docker** installed and running (see [Install Docker Engine](https://docs.docker.com/engine/install/)). Verify with `docker ps`. Alternatively, [Finch](https://github.com/runfinch/finch) can be used on Mac. See below if you have a non-ARM machine.
+- **Docker** - Required for all deployments. See [Install Docker Engine](https://docs.docker.com/engine/install/). Verify with `docker ps`. Alternatively, [Finch](https://github.com/runfinch/finch) can be used on Mac. See below if you have a non-ARM machine.
 - An AWS account with sufficient permissions to create:
   - S3 buckets
   - CloudFront distributions
@@ -31,10 +31,35 @@ stack_name_base: your-project-name # Change this to your preferred stack name
 admin_user_email: null # Optional: admin@example.com (auto-creates user & emails credentials)
 
 backend:
-  pattern: strands-single-agent # Available patterns: strands-single-agent
+  pattern: strands-single-agent # Available patterns: strands-single-agent, langgraph
+  deployment_type: docker # Available deployment types: docker (default), zip
 ```
 
 **Important**: Change `stack_name_base` to a unique name for your project to avoid conflicts.
+
+### Deployment Types
+
+FAST supports two deployment types for AgentCore Runtime. Set `deployment_type` in `infra-cdk/config.yaml`:
+
+| Type | Description |
+|------|-------------|
+| `docker` (default) | Builds container image, pushes to ECR |
+| `zip` | Packages code via Lambda, uploads to S3 |
+
+**Note**: Docker is required for both deployment types. The `zip` option only affects how the agent runtime is packaged. Other Lambda functions in the stack still use Docker for dependency bundling.
+
+**Use Docker (default) when:**
+- You need native C/C++ libraries without ARM64 wheels on PyPI
+- Your deployment package exceeds 250 MB
+- You need custom OS-level dependencies
+- You want maximum compatibility
+
+**Use ZIP when:**
+- You want faster iteration during development
+- Your dependencies are pure Python or have ARM64 wheels available
+- You need higher session throughput
+
+**ZIP packaging includes**: The `patterns/<your-pattern>/`, `gateway/`, and `tools/` directories are bundled together with dependencies from `requirements.txt`. This matches the `COPY` commands in the Docker deployment's Dockerfile.
 
 ## Deployment Steps
 
@@ -144,6 +169,7 @@ python scripts/deploy-frontend.py
 
 To update the backend agent:
 
+**Docker deployment:**
 ```bash
 cd infra-cdk
 cdk deploy --all

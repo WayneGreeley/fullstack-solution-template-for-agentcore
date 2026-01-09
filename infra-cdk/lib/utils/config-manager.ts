@@ -2,11 +2,14 @@ import * as fs from "fs"
 import * as path from "path"
 import * as yaml from "yaml"
 
+export type DeploymentType = "docker" | "zip"
+
 export interface AppConfig {
   stack_name_base: string
   admin_user_email?: string | null
   backend: {
     pattern: string
+    deployment_type: DeploymentType
   }
 }
 
@@ -28,12 +31,17 @@ export class ConfigManager {
       const fileContent = fs.readFileSync(configPath, "utf8")
       const parsedConfig = yaml.parse(fileContent) as AppConfig
 
-      // Validate required fields and provide defaults
+      const deploymentType = parsedConfig.backend?.deployment_type || "docker"
+      if (deploymentType !== "docker" && deploymentType !== "zip") {
+        throw new Error(`Invalid deployment_type '${deploymentType}'. Must be 'docker' or 'zip'.`)
+      }
+
       return {
         stack_name_base: parsedConfig.stack_name_base,
         admin_user_email: parsedConfig.admin_user_email || null,
         backend: {
           pattern: parsedConfig.backend?.pattern || "strands-single-agent",
+          deployment_type: deploymentType,
         },
       }
     } catch (error) {

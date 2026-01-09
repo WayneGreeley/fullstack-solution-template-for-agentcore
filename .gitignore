@@ -29,5 +29,6 @@ notebooks/examples/data
 **/next-env.d.ts
 frontend/public/aws-exports.json
 .venv
+scripts/zip-artifact/
 public/
 .mkdocs/public/
