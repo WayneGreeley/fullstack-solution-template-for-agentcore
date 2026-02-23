@@ -183,19 +183,50 @@ def main():
     print("\nResponse:")
     print(json.dumps(tools, indent=2))
 
-    # Call the text analysis tool
+    # Call the text analysis tool using its name from tools/list
     print_section("Tool Call Test")
-    print("Calling text analysis tool...")
+
+    tool_list = tools.get("result", {}).get("tools", [])
+    if not tool_list:
+        print_msg("No tools found in gateway", "error")
+        sys.exit(1)
+
+    # Find the text analysis tool by base name (after the ___ target prefix)
+    target_tool = "text_analysis_tool"
+    tool_name = None
+    for t in tool_list:
+        if t["name"].endswith(f"___{target_tool}"):
+            tool_name = t["name"]
+            break
+
+    if not tool_name:
+        print_msg(
+            f"Tool '{target_tool}' not found. Available: {[t['name'] for t in tool_list]}",
+            "error",
+        )
+        sys.exit(1)
+
+    print(f"Calling tool: {tool_name}...")
 
     tool_result = call_tool(
         gateway_url,
         access_token,
-        "FASTAgent___text_analysis_tool",
+        tool_name,
         {
             "text": "Hello world! This is a sample text for analysis. Hello again!",
             "N": 3,
         },
     )
+
+    # Validate response
+    if "error" in tool_result:
+        print_msg(f"Tool returned error: {tool_result['error']}", "error")
+        sys.exit(1)
+
+    if "result" not in tool_result or "content" not in tool_result["result"]:
+        print_msg(f"Unexpected response format: {json.dumps(tool_result)}", "error")
+        sys.exit(1)
+
     print_msg("Tool call successful")
     print("\nResponse:")
     print(json.dumps(tool_result, indent=2))

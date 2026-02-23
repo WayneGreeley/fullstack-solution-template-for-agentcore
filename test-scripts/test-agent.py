@@ -25,6 +25,7 @@ Usage:
 import argparse
 import atexit
 import getpass
+import json
 import signal
 import socket
 import subprocess  # nosec B404 - subprocess used securely with explicit parameters
@@ -205,7 +206,7 @@ def invoke_agent(
     url: str,
     prompt: str,
     session_id: str,
-    user_id: str,
+    user_id: str = "local-test-user",
     headers: Optional[Dict[str, str]] = None,
 ) -> None:
     """
@@ -215,7 +216,9 @@ def invoke_agent(
         url (str): Agent endpoint URL
         prompt (str): User prompt/query
         session_id (str): Session ID for conversation continuity
-        user_id (str): User ID (used to generate mock JWT for local testing)
+        user_id (str): User ID for mock JWT in local testing only. In remote mode,
+            the real Cognito JWT carries the user identity, user_id is never sent
+            in the payload to prevent prompt injection impersonation.
         headers (Optional[Dict[str, str]]): Optional HTTP headers
     """
     payload = {
@@ -239,10 +242,69 @@ def invoke_agent(
             print(f"Error: HTTP {response.status_code}: {response.text}")
             return
 
-        # Print raw events as they arrive
+        # Parse streaming events and display clean text output
+        print(f"{Fore.GREEN}Agent:{Style.RESET_ALL} ", end="", flush=True)
         for line in response.iter_lines(decode_unicode=True):
-            if line:
-                print(f"{Fore.GREEN}→{Style.RESET_ALL} {line}", flush=True)
+            if not line or not line.startswith("data: "):
+                continue
+            try:
+                chunk = json.loads(line[6:])
+
+                # LangGraph: AIMessageChunk with content array
+                if chunk.get("type") == "AIMessageChunk" and isinstance(
+                    chunk.get("content"), list
+                ):
+                    for block in chunk["content"]:
+                        if block.get("type") == "text" and block.get("text"):
+                            print(block["text"], end="", flush=True)
+                        elif block.get("type") == "tool_use" and block.get("name"):
+                            print(
+                                f"\n{Fore.YELLOW}[Tool: {block['name']}]{Style.RESET_ALL} ",
+                                end="",
+                                flush=True,
+                            )
+
+                # LangGraph: ToolMessage result
+                elif chunk.get("type") == "tool":
+                    result = chunk.get("content", "")
+                    if len(result) > 200:
+                        result = result[:200] + "..."
+                    print(
+                        f"\n{Fore.YELLOW}[Result: {result}]{Style.RESET_ALL}",
+                        flush=True,
+                    )
+
+                # Strands: text token
+                elif isinstance(chunk.get("data"), str):
+                    print(chunk["data"], end="", flush=True)
+
+                # Strands: tool use
+                elif chunk.get("current_tool_use") and chunk.get(
+                    "current_tool_use", {}
+                ).get("name"):
+                    tool = chunk["current_tool_use"]
+                    if chunk.get("delta", {}).get("toolUse", {}).get("input") == "":
+                        print(
+                            f"\n{Fore.YELLOW}[Tool: {tool['name']}]{Style.RESET_ALL} ",
+                            end="",
+                            flush=True,
+                        )
+
+                # Strands: tool result
+                elif chunk.get("message", {}).get("role") == "user":
+                    for content in chunk["message"].get("content", []):
+                        if "toolResult" in content:
+                            result = str(content["toolResult"].get("content", ""))
+                            if len(result) > 200:
+                                result = result[:200] + "..."
+                            print(
+                                f"\n{Fore.YELLOW}[Result: {result}]{Style.RESET_ALL}",
+                                flush=True,
+                            )
+
+            except (json.JSONDecodeError, KeyError):
+                continue
+        print()  # Final newline
 
     except requests.exceptions.ConnectionError:
         print_msg(f"Could not connect to {url}", "error")
@@ -308,7 +370,6 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
                     url=url,
                     prompt=prompt,
                     session_id=session_id,
-                    user_id=config["user_id"],
                     headers=headers,
                 )
 
@@ -445,7 +506,6 @@ def main():
         config["access_token"] = access_token
         config["runtime_arn"] = runtime_arn
         config["region"] = region
-
         print(f"\nRuntime ARN: {runtime_arn}")
         print(f"Region: {region}\n")
 
