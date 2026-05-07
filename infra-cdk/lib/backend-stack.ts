@@ -151,19 +151,19 @@ export class BackendStack extends cdk.NestedStack {
       // Read agent code files and encode as base64
       const agentCode: Record<string, string> = {}
       
-      // Read pattern .py files recursively (includes tools/ subdirectory)
-      const readPythonFiles = (dir: string, prefix: string) => {
+      // Read pattern files recursively (all file types)
+      const readPatternFiles = (dir: string, prefix: string) => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
           const fullPath = path.join(dir, entry.name) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
           const relativePath = prefix ? path.join(prefix, entry.name) : entry.name // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
           if (entry.isDirectory() && entry.name !== "__pycache__") {
-            readPythonFiles(fullPath, relativePath)
-          } else if (entry.isFile() && entry.name.endsWith(".py")) {
+            readPatternFiles(fullPath, relativePath)
+          } else if (entry.isFile()) {
             agentCode[relativePath] = fs.readFileSync(fullPath).toString("base64")
           }
         }
       }
-      readPythonFiles(patternDir, "")
+      readPatternFiles(patternDir, "")
 
       // Read shared modules — gateway/ keeps its name, repo-root tools/ is
       // packaged as agentcore_tools/ to match the Dockerfile convention and
@@ -900,6 +900,8 @@ export class BackendStack extends cdk.NestedStack {
     //   JWT claim "department" → principal.getTag("department")
     //   JWT claim "role"       → principal.getTag("role")
     //   JWT claim "user_id"    → principal.getTag("user_id")
+    // These are CUSTOM claims injected by the V3 Pre-Token Lambda, not standard
+    // JWT claims. You can define custom claim names and match them in Cedar.
     //
     // The Cedar action name format is: "<TargetName>___<tool_name>" (triple underscore).
     // Tool name comes from tool_spec.json: "text_analysis_tool"

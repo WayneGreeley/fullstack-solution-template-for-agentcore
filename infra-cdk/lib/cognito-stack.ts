@@ -119,15 +119,16 @@ export class CognitoStack extends cdk.NestedStack {
     // V3 Pre-Token Generation Lambda
     // ========================================
     // This Lambda fires on M2M token generation (Client Credentials flow) and injects
-    // user identity claims (user_id, department, role) into the M2M access token.
+    // custom claims (user_id, department, role) into the M2M access token.
+    // These are application-defined claims, not standard JWT/OIDC claims.
     // The claims are read from clientMetadata.verified_user_id, which is passed via
     // the aws_client_metadata parameter in the direct Cognito /oauth2/token call
     // (see patterns/utils/auth.py — get_gateway_access_token).
     //
     // For this demo, group assignment is hardcoded based on the user's email:
-    // - alice@* → department: "finance", role: "admin"
-    // - bob@*   → department: "engineering", role: "developer"
-    // - others  → department: "guest", role: "viewer"
+    // - fastprojectadmin@* → department: "finance", role: "admin"
+    // - fastuser@*         → department: "engineering", role: "developer"
+    // - others (your own email) → department: "guest", role: "viewer"
     //
     // To use dynamic group assignment, replace the hardcoded logic in the
     // Pre-Token Lambda (infra-cdk/lambdas/pretoken-v3/index.py) with a

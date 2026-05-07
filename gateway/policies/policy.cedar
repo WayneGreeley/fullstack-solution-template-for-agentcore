@@ -6,8 +6,14 @@
 //   JWT claim "role"       → principal.getTag("role")
 //   JWT claim "user_id"    → principal.getTag("user_id")
 //
-// These claims are injected into the M2M token by the Cognito V3 Pre-Token
-// Lambda based on the authenticated user's identity.
+// CLAIM TYPES:
+// The claims referenced in the "when" block below are CUSTOM claims. 
+// They are injected by the Cognito V3 Pre-Token
+// Lambda via claimsToAddOrOverride. You can define the claim names you need
+// — ensure the Pre-Token Lambda output matches the Cedar policy.
+//
+// Standard claims (sub, iss, client_id, scope, exp, etc.) are also available
+// as principal tags but are managed automatically by Cognito.
 //
 // CEDAR SYNTAX NOTES:
 // - Cedar is deny-by-default: if no permit statement matches a request, it is

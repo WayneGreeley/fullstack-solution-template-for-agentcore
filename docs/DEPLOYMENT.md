@@ -63,7 +63,7 @@ FAST supports two deployment types for AgentCore Runtime. Set `deployment_type` 
 - Your dependencies are pure Python or have ARM64 wheels available
 - You need higher session throughput
 
-**ZIP packaging includes**: The `patterns/<your-pattern>/`, `gateway/`, and `tools/` directories are bundled together with dependencies from `requirements.txt`. This matches the `COPY` commands in the Docker deployment's Dockerfile.
+**ZIP packaging includes**: The `patterns/<your-pattern>/`, `patterns/utils/`, `gateway/`, and `tools/` directories are bundled together with dependencies from `requirements.txt`. This matches the `COPY` commands in the Docker deployment's Dockerfile.
 
 ### VPC Deployment (Private Network)
 

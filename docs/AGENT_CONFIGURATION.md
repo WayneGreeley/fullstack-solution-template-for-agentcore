@@ -158,7 +158,7 @@ EXPOSE 8080
 CMD ["python", "your_agent.py"]
 ```
 
-**For ZIP deployment**: No Dockerfile is needed. The ZIP packager automatically bundles your `patterns/<pattern>/` directory along with `gateway/` and `tools/` directories, plus dependencies from `requirements.txt`.
+**For ZIP deployment**: No Dockerfile is needed. The ZIP packager automatically bundles your `patterns/<pattern>/` directory along with `patterns/utils/`, `gateway/`, and `tools/` directories, plus dependencies from `requirements.txt`.
 
 ### Step 4: Update CDK Configuration
 

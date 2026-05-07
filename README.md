@@ -156,6 +156,8 @@ fullstack-agentcore-solution-template/
 │   ├── MEMORY_INTEGRATION.md # Memory integration guide
 │   ├── GATEWAY.md          # Gateway integration guide
 │   ├── IDENTITY_POLICY.md  # Identity propagation & Cedar policy guide
+│   ├── CEDAR_POLICY_GUIDE.md # Cedar policy syntax, capabilities & reference
+│   ├── REPLACING_COGNITO.md # Identity provider swap & Gateway interceptors guide
 │   ├── RUNTIME_GATEWAY_AUTH.md # M2M authentication workflow
 │   ├── STREAMING.md        # Streaming implementation guide
 │   ├── TOOL_AC_CODE_INTERPRETER.md # Code Interpreter guide
