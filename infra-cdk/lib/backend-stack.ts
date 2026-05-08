@@ -1001,6 +1001,8 @@ export class BackendStack extends cdk.NestedStack {
       properties: {
         GatewayIdentifier: gateway.attrGatewayIdentifier,
         PolicyDocument: policyDocument,
+        // Policy name format: {PolicyEngineName}_cp_{timestamp}
+        // The AgentCore API enforces a 48-character limit on policy names.
         PolicyEngineName: `${config.stack_name_base.replace(/-/g, "_")}_policy_engine`,
         Description: "Department-based tool access control for AgentCore Policy demo",
       },

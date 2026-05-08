@@ -356,7 +356,7 @@ To check which Cedar policy is currently active on the Gateway:
 
 1. Go to **AWS Console → Bedrock AgentCore → Policy**
 2. Click on your Policy Engine (e.g., `FAST_stack_policy_engine`) from the Policy engines section
-3. In the **Policies** section, click on your policy (e.g., `FAST_stack_policy_engine_cedar_policy_<timestamp>`)
+3. In the **Policies** section, click on your policy (e.g., `FAST_stack_policy_engine_cp_<timestamp>`)
 4. The **Definition** section shows the policy breakdown:
     - **Effect**: `permit` or `forbid`
     - **Scope: Principal**: `AgentCore::OAuthUser`

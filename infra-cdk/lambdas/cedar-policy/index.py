@@ -116,7 +116,9 @@ def handle_create(props: dict) -> dict:
     policy_engine_arn = engine_details["policyEngineArn"]
 
     # Step 2: Create Cedar Policy
-    policy_name = f"{engine_name}_cedar_policy"
+    # Policy name format: {engine_name}_cp_{timestamp}
+    # The AgentCore API enforces a 48-character limit on policy names.
+    policy_name = f"{engine_name}_cp_{int(time.time())}"
     logger.info(f"Creating Cedar Policy: {policy_name}")
     policy_response = client.create_policy(
         policyEngineId=policy_engine_id,
@@ -187,8 +189,10 @@ def handle_update(event: dict, props: dict) -> dict:
     _delete_managed_policies(policy_engine_id, old_policy_id, props)
 
     # Create new policy
+    # Policy name format: {engine_name}_cp_{timestamp}
+    # The AgentCore API enforces a 48-character limit on policy names.
     engine_name = props["PolicyEngineName"]
-    policy_name = f"{engine_name}_cedar_policy_{int(time.time())}"
+    policy_name = f"{engine_name}_cp_{int(time.time())}"
     logger.info(f"Creating new Cedar Policy: {policy_name}")
     policy_response = client.create_policy(
         policyEngineId=policy_engine_id,
@@ -337,7 +341,7 @@ def _delete_managed_policies(
         for p in policies.get("policies", []):
             p_id = p["policyId"]
             p_name = p.get("name", "")
-            if p_name.startswith(f"{engine_name}_cedar_policy"):
+            if p_name.startswith(f"{engine_name}_cp"):
                 logger.info(f"Deleting remaining policy: {p_id} ({p_name})")
                 try:
                     client.delete_policy(
