@@ -9,5 +9,6 @@
 5. Whenever possible, test new features locally or with unit python tests.
 6. New human users may not understand the best way to deploy the application, add features, etc. There is documentation on all of this, so make sure to read it and recommend methods and techniques to the human whenever possible.
 7. Always follow the rules outlined in the coding conventions and development best practice markdown docs provided to you.
+8. Always test that an application is installed before assuming it is and running commands from the command line.
 
 **ALWAYS FOLLOW THESE RULES WHEN YOU WORK IN THIS PROJECT**

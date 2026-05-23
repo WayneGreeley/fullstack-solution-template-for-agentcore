@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Override module settings for Jest/ts-jest compatibility.
+    // ts-jest requires CommonJS module format; NodeNext is not supported with isolatedModules.
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "isolatedModules": true
+  }
+}

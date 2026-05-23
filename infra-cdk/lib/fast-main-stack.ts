@@ -6,6 +6,7 @@ import { AppConfig } from "./utils/config-manager"
 import { BackendStack } from "./backend-stack"
 import { AmplifyHostingStack } from "./amplify-hosting-stack"
 import { CognitoStack } from "./cognito-stack"
+import { YouTubeVideoEditorStack } from "./youtube-video-editor-stack"
 
 export interface FastAmplifyStackProps extends cdk.StackProps {
   config: AppConfig
@@ -15,6 +16,7 @@ export class FastMainStack extends cdk.Stack {
   public readonly amplifyHostingStack: AmplifyHostingStack
   public readonly backendStack: BackendStack
   public readonly cognitoStack: CognitoStack
+  public readonly youtubeVideoEditorStack: YouTubeVideoEditorStack
 
   constructor(scope: Construct, id: string, props: FastAmplifyStackProps) {
     const description =
@@ -38,6 +40,11 @@ export class FastMainStack extends cdk.Stack {
       userPoolClientId: this.cognitoStack.userPoolClientId,
       userPoolDomain: this.cognitoStack.userPoolDomain,
       frontendUrl: this.amplifyHostingStack.amplifyUrl,
+    })
+
+    // Step 3: Create YouTube Video Editor stack
+    this.youtubeVideoEditorStack = new YouTubeVideoEditorStack(this, `${id}-video-editor`, {
+      stackNameBase: props.config.stack_name_base,
     })
 
     // Outputs
@@ -97,6 +104,19 @@ export class FastMainStack extends cdk.Stack {
       value: this.amplifyHostingStack.stagingBucket.bucketName,
       description: "S3 bucket for Amplify deployment staging",
       exportName: `${props.config.stack_name_base}-StagingBucket`,
+    })
+
+    // YouTube Video Editor Outputs
+    new cdk.CfnOutput(this, "VideoEditorApiUrl", {
+      value: this.youtubeVideoEditorStack.api.url,
+      description: "YouTube Video Editor API Gateway URL",
+      exportName: `${props.config.stack_name_base}-VideoEditorApiUrl`,
+    })
+
+    new cdk.CfnOutput(this, "VideoEditorCloudFrontUrl", {
+      value: `https://${this.youtubeVideoEditorStack.distribution.distributionDomainName}`,
+      description: "CloudFront URL for video delivery",
+      exportName: `${props.config.stack_name_base}-VideoEditorCloudFrontUrl`,
     })
   }
 }
